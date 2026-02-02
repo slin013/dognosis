@@ -24,12 +24,12 @@ except ImportError:
 # GAIN = 1  # depends on your sensor
 
 # --- Initialize sensors ---
-hrm = HeartRateMonitor(print_raw=False, print_result=True)
-mlx = MLX90614()
+# hrm = HeartRateMonitor(print_raw=False, print_result=True)
+# mlx = MLX90614()
 mpu = mpu6050(0x68)
 
 # Start heart rate monitoring thread
-hrm.start_sensor()
+# hrm.start_sensor()
 
 # CSV Logging Setup
 csv_file = "dog_harness_data.csv"
@@ -46,12 +46,12 @@ with open(csv_file, "w", newline="") as f:
         while time.time() - start_time < 30:  # 30-second test
             timestamp = time.time()
 
-            # Heart Rate
-            bpm = hrm.bpm if hasattr(hrm, "bpm") else 0
-            arr = bool(hrm.rr_intervals[-1]) if hrm.rr_intervals else False
+            # # Heart Rate
+            # bpm = hrm.bpm if hasattr(hrm, "bpm") else 0
+            # arr = bool(hrm.rr_intervals[-1]) if hrm.rr_intervals else False
 
-            # Temperature
-            temp = mlx.get_object_1()  # Celsius
+            # # Temperature
+            # temp = mlx.get_object_1()  # Celsius
 
             # Motion
             accel = mpu.get_accel_data()
@@ -62,19 +62,18 @@ with open(csv_file, "w", newline="") as f:
 
             # Write to CSV
             # writer.writerow([timestamp, bpm, arr, temp, ax, ay, az, piezo_val])
-            writer.writerow([timestamp, bpm, arr, temp, ax, ay, az])
+            writer.writerow([timestamp, ax, ay, az])
 
             # Print live values
             # print(f"BPM: {bpm:.1f} | Arrhythmia: {arr} | Temp: {temp:.1f}C | "
             #       f"Accel: ({ax:.2f}, {ay:.2f}, {az:.2f}) | Piezo: {piezo_val}")
-            print(f"BPM: {bpm:.1f} | Arrhythmia: {arr} | Temp: {temp:.1f}C | "
-               f"Accel: ({ax:.2f}, {ay:.2f}, {az:.2f})")
+            print(f"Accel: ({ax:.2f}, {ay:.2f}, {az:.2f})")
 
             time.sleep(1)  # 1 Hz logging
     except KeyboardInterrupt:
         print("Data collection interrupted by user.")
 
 # Stop heart rate sensor
-hrm.stop_sensor()
+# hrm.stop_sensor()
 print(f"Data saved to {csv_file}")
 print("Testing complete.")
