@@ -14,14 +14,14 @@ try:
     from mpu6050 import mpu6050
 except ImportError:
     print("Install MPU6050 library: pip3 install mpu6050")
-try:
-    import Adafruit_ADS1x15
-except ImportError:
-    print("Install ADS1115 library: pip3 install adafruit-ads1x15")
+# try:
+#     import Adafruit_ADS1x15
+# except ImportError:
+#     print("Install ADS1115 library: pip3 install adafruit-ads1x15")
 
 # --- Optional: Piezo setup using ADS1115 ---
-adc = Adafruit_ADS1x15.ADS1115()
-GAIN = 1  # depends on your sensor
+# adc = Adafruit_ADS1x15.ADS1115()
+# GAIN = 1  # depends on your sensor
 
 # --- Initialize sensors ---
 hrm = HeartRateMonitor(print_raw=False, print_result=True)
@@ -57,15 +57,18 @@ with open(csv_file, "w", newline="") as f:
             accel = mpu.get_accel_data()
             ax, ay, az = accel['x'], accel['y'], accel['z']
 
-            # Piezo vibration sensor (Analog via ADS1115)
-            piezo_val = adc.read_adc(0, gain=GAIN)
+            # # Piezo vibration sensor (Analog via ADS1115)
+            # piezo_val = adc.read_adc(0, gain=GAIN)
 
             # Write to CSV
-            writer.writerow([timestamp, bpm, arr, temp, ax, ay, az, piezo_val])
+            # writer.writerow([timestamp, bpm, arr, temp, ax, ay, az, piezo_val])
+            writer.writerow([timestamp, bpm, arr, temp, ax, ay, az])
 
             # Print live values
+            # print(f"BPM: {bpm:.1f} | Arrhythmia: {arr} | Temp: {temp:.1f}C | "
+            #       f"Accel: ({ax:.2f}, {ay:.2f}, {az:.2f}) | Piezo: {piezo_val}")
             print(f"BPM: {bpm:.1f} | Arrhythmia: {arr} | Temp: {temp:.1f}C | "
-                  f"Accel: ({ax:.2f}, {ay:.2f}, {az:.2f}) | Piezo: {piezo_val}")
+               f"Accel: ({ax:.2f}, {ay:.2f}, {az:.2f})")
 
             time.sleep(1)  # 1 Hz logging
     except KeyboardInterrupt:
