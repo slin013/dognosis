@@ -1,6 +1,7 @@
 # File 1: heartrate_monitor.py (FULL VERSION FOR TESTING)
 # FROM CHAT - For initial testing -- adds filtering to make more accurate for testing with dog
 # Replace your existing heartrate_monitor.py with this.
+# Adds basic arrhythmia detection
 
 import time
 import threading

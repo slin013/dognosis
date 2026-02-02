@@ -14,7 +14,7 @@
 # 3. Run
 # python3 main.py
 
-from heartrate_monitor import HeartRateMonitor
+from updated_heartrate_monitor import HeartRateMonitor
 import time
 
 print("Sensor starting...")
