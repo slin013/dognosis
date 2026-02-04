@@ -1,5 +1,5 @@
 
-from max30102 import MAX30102
+from heartrate_sensor.max30102 import MAX30102
 import hrcalc
 import threading
 import time
