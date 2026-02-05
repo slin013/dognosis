@@ -15,50 +15,57 @@ import numpy as np
 from mpu6050 import mpu6050
 from scipy.signal import butter, filtfilt, find_peaks
 
-# --- Parameters ---
-FS = 50  # sampling frequency (Hz)
-LOWCUT = 1.0
-HIGHCUT = 5.0
-WINDOW_SIZE = FS * 5  # 5-second window
 
-# --- Bandpass filter ---
-def bandpass_filter(data, fs=FS, low=LOWCUT, high=HIGHCUT):
-    b, a = butter(2, [low/(fs/2), high/(fs/2)], btype='band')
-    return filtfilt(b, a, data)
+SAMPLE_RATE = 50        # Hz
+DURATION = 30           # seconds
+MIN_STEP_INTERVAL = 0.3 # seconds (dogs rarely step faster than this)
 
-# --- Initialize IMU ---
-mpu = mpu6050(0x68)
 
-accel_buffer = []
-step_count = 0
+def collect_imu_data(mpu, duration=DURATION, fs=SAMPLE_RATE):
+    samples = []
+    interval = 1.0 / fs
+    start_time = time.time()
 
-print("Step counter running... CTRL+C to stop")
+    while time.time() - start_time < duration:
+        accel = mpu.get_accel_data(g=True)
 
-try:
-    while True:
-        accel = mpu.get_accel_data()
-        ax, ay, az = accel['x'], accel['y'], accel['z']
+        # Acceleration magnitude (in g)
+        mag = math.sqrt(
+            accel['x']**2 +
+            accel['y']**2 +
+            accel['z']**2
+        )
 
-        accel_mag = math.sqrt(ax**2 + ay**2 + az**2)
-        accel_buffer.append(accel_mag)
+        samples.append((time.time(), mag))
+        time.sleep(interval)
 
-        if len(accel_buffer) > WINDOW_SIZE:
-            accel_buffer.pop(0)
+    return samples
 
-        if len(accel_buffer) == WINDOW_SIZE:
-            filtered = bandpass_filter(np.array(accel_buffer))
 
-            peaks, _ = find_peaks(
-                filtered,
-                distance=int(0.3 * FS),  # min time between steps
-                prominence=0.1
-            )
+def count_steps(samples):
+    magnitudes = [s[1] for s in samples]
 
-            step_count = len(peaks)
+    # Adaptive threshold
+    mean = sum(magnitudes) / len(magnitudes)
+    std = (sum((x - mean)**2 for x in magnitudes) / len(magnitudes))**0.5
+    threshold = mean + 0.5 * std
 
-            print(f"Estimated steps (last 5s): {step_count}")
+    steps = 0
+    last_step_time = 0
 
-        time.sleep(1 / FS)
+    for t, mag in samples:
+        if mag > threshold and (t - last_step_time) > MIN_STEP_INTERVAL:
+            steps += 1
+            last_step_time = t
 
-except KeyboardInterrupt:
-    print("\nStopped.")
+    return steps
+
+
+if __name__ == "__main__":
+    mpu = mpu6050(0x68)
+
+    print("Collecting IMU data for 30 seconds...")
+    data = collect_imu_data(mpu)
+
+    steps = count_steps(data)
+    print(f"Total steps in 30 seconds: {steps}")
