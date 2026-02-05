@@ -51,6 +51,7 @@ if __name__ == "__main__":
 
     prev_mag = 0
 
+
     while time.time() - start_time < DURATION:
         accel = mpu.get_accel_data(g=True)
         mag = accel_magnitude(accel)
@@ -58,22 +59,41 @@ if __name__ == "__main__":
         dynamic_mag = abs(mag - mean)
         t = time.time() - start_time
 
+        thresh = max(K * std, 0.15)
+
         is_peak = (
-            dynamic_mag > max(K * std, 0.15) and
-            prev_mag <= max(K * std, 0.15)
+            dynamic_mag > thresh and
+            prev_mag <= thresh
         )
 
         if is_peak and (time.time() - last_step_time) > MIN_STEP_INTERVAL:
+            now = time.time()
             steps += 1
-            last_step_time = time.time()
-            print(f"Step {steps} at {t:.2f}s | dyn_mag={dynamic_mag:.3f}")
+
+            if step_times:
+                dt = now - step_times[-1]
+                freq = 1.0 / dt
+                freq_norm = min(max(freq / 3.0, 0.6), 1.2)
+
+                step_length = (DOG_LENGTH_IN * STEP_SCALE) / freq_norm
+                step_lengths.append(step_length)
+
+                print(
+                    f"Step {steps} | "
+                    f"dt={dt:.2f}s | "
+                    f"len={step_length:.1f} in"
+                )
+            else:
+                print(f"Step {steps}")
+
+            step_times.append(now)
+            last_step_time = now
 
         prev_mag = dynamic_mag
         time.sleep(1 / SAMPLE_RATE)
 
-
-    print(f"\nTotal steps in {DURATION} seconds: {steps}")
+        print(f"\nTotal steps in {DURATION} seconds: {steps}")
 
     if step_lengths:
         avg_len = sum(step_lengths) / len(step_lengths)
-        print(f"Average step length: {avg_len:.1f} inches")
+        print(f"\nAverage step length: {avg_len:.2f} in")
