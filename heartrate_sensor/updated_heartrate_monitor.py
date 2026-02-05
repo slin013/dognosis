@@ -7,7 +7,7 @@ import time
 import threading
 import numpy as np
 from scipy.signal import butter, filtfilt, find_peaks
-from max30102 import MAX30102
+from heartrate_sensor.max30102 import MAX30102
 
 
 def bandpass_filter(signal, fs=100, low=1.0, high=4.0):

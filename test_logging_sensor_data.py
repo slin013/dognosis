@@ -11,7 +11,7 @@ try:
 except ImportError:
     print("Install MLX90614 library: pip3 install mlx90614")
 try:
-    from mpu6050 import mpu6050
+    from sensors.mpu6050 import mpu6050
 except ImportError:
     print("Install MPU6050 library: pip3 install mpu6050")
 # try:
