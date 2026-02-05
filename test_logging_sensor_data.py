@@ -7,11 +7,11 @@ import threading
 import numpy as np
 from heartrate_sensor.updated_heartrate_monitor import HeartRateMonitor
 try:
-    from temperature_sensor.temperature_sensor import MLX90614
+    from temperature_sensor import MLX90614
 except ImportError:
     print("Install MLX90614 library: pip3 install mlx90614")
 try:
-    from motion_sensor.mpu6050 import mpu6050
+    from mpu6050 import mpu6050
 except ImportError:
     print("Install MPU6050 library: pip3 install mpu6050")
 # try:
