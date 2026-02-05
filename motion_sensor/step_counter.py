@@ -12,7 +12,7 @@
 import time
 import math
 import numpy as np
-from motion_sensor.mpu6050 import mpu6050
+from mpu6050 import mpu6050
 from scipy.signal import butter, filtfilt, find_peaks
 
 # --- Parameters ---

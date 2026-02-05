@@ -3,7 +3,7 @@
 import time
 import csv
 import math
-from motion_sensor.mpu6050 import mpu6050
+from mpu6050 import mpu6050
 
 # Initialize MPU6050
 mpu = mpu6050(0x68)
