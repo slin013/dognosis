@@ -1,4 +1,4 @@
-from MLX90614 import *
+from temperature_sensor import *
 
 if __name__ == "__main__":
     sensor = MLX90614()
