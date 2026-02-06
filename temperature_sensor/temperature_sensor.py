@@ -21,6 +21,9 @@ class MLX90614():
         raise error
 
     def valueToCelcius(self, value):
+        return -459.67 + (value * 0.036)
+
+    def valueToFahrenheit(self, value):
         return -273.15 + (value * 0.02)
 
     def readObjectTemperature(self):
