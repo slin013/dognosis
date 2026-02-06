@@ -20,16 +20,16 @@ class MLX90614():
                 sleep(0.1)
         raise error
 
-    def valueToCelcius(self, value):
+    def valueToF(self, value):
         return -459.67 + (value * 0.036)
 
-    def valueToFahrenheit(self, value):
+    def valueToC(self, value):
         return -273.15 + (value * 0.02)
 
     def readObjectTemperature(self):
         value = self.readValue(self.MLX90614_TOBJ1)
-        return self.valueToFahrenheit(value)
+        return self.valueToF(value)
 
     def readAmbientTemperature(self):
         value = self.readValue(self.MLX90614_TA)
-        return self.valueToFahrenheit(value)
+        return self.valueToF(value)
