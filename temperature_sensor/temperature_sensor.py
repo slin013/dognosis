@@ -28,8 +28,8 @@ class MLX90614():
 
     def readObjectTemperature(self):
         value = self.readValue(self.MLX90614_TOBJ1)
-        return self.valueToCelcius(value)
+        return self.valueToFahrenheit(value)
 
     def readAmbientTemperature(self):
         value = self.readValue(self.MLX90614_TA)
-        return self.valueToCelcius(value)
+        return self.valueToFahrenheit(value)
