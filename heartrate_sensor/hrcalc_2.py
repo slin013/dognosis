@@ -1,103 +1,176 @@
 import numpy as np
 
 SAMPLE_FREQ = 25
-MA_SIZE = 4
 BUFFER_SIZE = 100
 
-def calc_hr_and_spo2(ir_data, red_data):
+def calc_hr_and_spo2(ir_data, red_data, method='autocorrelation', debug=False):
     """
-    Drop-in replacement with same interface but improved algorithms
+    Simplified version with multiple calculation methods
     """
-    # Convert inputs
     ir = np.array(ir_data, dtype=np.float64)
     red = np.array(red_data, dtype=np.float64)
     
-    # Quick validation
-    if len(ir) < BUFFER_SIZE or len(red) < BUFFER_SIZE:
+    # Validate signal quality
+    if not _validate_signal(ir, red, debug):
         return -999, False, -999, False
     
-    # Use only the last BUFFER_SIZE samples if more are provided
-    if len(ir) > BUFFER_SIZE:
-        ir = ir[-BUFFER_SIZE:]
-        red = red[-BUFFER_SIZE:]
+    # Choose calculation method
+    if method == 'autocorrelation':
+        hr, hr_valid = _calculate_hr_autocorrelation(ir, debug)
+    elif method == 'peak_detection':
+        hr, hr_valid = _calculate_hr_peak_detection(ir, debug)
+    elif method == 'fft':
+        hr, hr_valid = _calculate_hr_fft(ir, debug)
+    else:
+        hr, hr_valid = _calculate_hr_peak_detection(ir, debug)
     
-    # Calculate HR using improved method
-    hr, hr_valid = _improved_hr_calculation(ir)
+    # Calculate SpO2 if HR is valid
+    if hr_valid:
+        spo2, spo2_valid = _calculate_spo2_simple(ir, red, debug)
+    else:
+        spo2, spo2_valid = -999, False
     
-    # Calculate SpO2
-    spo2, spo2_valid = _improved_spo2_calculation(ir, red, hr_valid)
-    
-    return int(hr) if hr_valid else -999, hr_valid, \
-           float(spo2) if spo2_valid else -999, spo2_valid
+    return hr, hr_valid, spo2, spo2_valid
 
-def _improved_hr_calculation(ir):
-    """Improved HR calculation with better signal processing"""
-    # Step 1: Remove DC component
+def _validate_signal(ir, red, debug=False):
+    """Validate signal quality"""
+    # Check for sufficient amplitude
+    ir_range = np.max(ir) - np.min(ir)
+    red_range = np.max(red) - np.min(red)
+    
+    if ir_range < 2000 or red_range < 1000:
+        if debug:
+            print(f"Signal amplitude too low: IR range={ir_range}, Red range={red_range}")
+        return False
+    
+    # Check for saturation
+    if np.max(ir) > 16000000 or np.max(red) > 16000000:
+        if debug:
+            print("Signal saturated")
+        return False
+    
+    # Check for reasonable DC levels
     ir_mean = np.mean(ir)
-    x = ir - ir_mean
+    red_mean = np.mean(red)
     
-    # Step 2: Apply bandpass filter (0.5-4 Hz)
-    try:
-        from scipy import signal
-        fs = SAMPLE_FREQ
-        nyquist = fs / 2
-        low = 0.5 / nyquist
-        high = 4.0 / nyquist
-        b, a = signal.butter(2, [low, high], btype='band')
-        x = signal.filtfilt(b, a, x)
-    except ImportError:
-        # Fallback: simple moving average
-        for i in range(len(x) - MA_SIZE):
-            x[i] = np.mean(x[i:i+MA_SIZE])
+    if ir_mean < 10000 or red_mean < 10000:
+        if debug:
+            print(f"DC level too low: IR mean={ir_mean}, Red mean={red_mean}")
+        return False
     
-    # Step 3: Find peaks/valleys
-    # Invert for valley detection
-    x_inv = -x
+    return True
+
+def _calculate_hr_autocorrelation(ir, debug=False):
+    """Calculate HR using autocorrelation (more robust to noise)"""
+    # Remove DC component
+    ir_ac = ir - np.mean(ir)
     
-    # Dynamic threshold
-    signal_range = np.max(x_inv) - np.min(x_inv)
-    if signal_range < 1000:
-        return -999, False
+    # Apply bandpass filter (0.5 Hz to 4 Hz = 30 to 240 BPM)
+    from scipy import signal as spsignal
     
-    threshold = np.mean(x_inv) + 0.2 * signal_range
+    # Design bandpass filter
+    nyquist = SAMPLE_FREQ / 2
+    low = 0.5 / nyquist  # 0.5 Hz
+    high = 4.0 / nyquist  # 4.0 Hz
     
-    # Find peaks
-    peaks = []
-    for i in range(1, len(x_inv) - 1):
-        if x_inv[i] > threshold and x_inv[i] > x_inv[i-1] and x_inv[i] > x_inv[i+1]:
-            # Avoid duplicates
-            if not peaks or (i - peaks[-1]) > 6:  # At least 6 samples apart (~0.24s)
-                peaks.append(i)
+    b, a = spsignal.butter(2, [low, high], btype='band')
+    ir_filtered = spsignal.filtfilt(b, a, ir_ac)
     
-    # Step 4: Calculate HR from intervals
-    if len(peaks) >= 2:
-        intervals = []
-        for i in range(1, len(peaks)):
-            interval = peaks[i] - peaks[i-1]
-            # Validate interval (0.3-2.0 seconds)
-            if 7 <= interval <= 50:  # At 25Hz: 7 samples=0.28s, 50 samples=2.0s
-                intervals.append(interval)
+    # Calculate autocorrelation
+    autocorr = np.correlate(ir_filtered, ir_filtered, mode='full')
+    autocorr = autocorr[len(autocorr)//2:]  # Take positive lags
+    
+    # Find peaks in autocorrelation (skip first peak at lag 0)
+    peaks, _ = spsignal.find_peaks(autocorr[10:])  # Skip first 10 samples
+    peaks = peaks + 10  # Adjust indices
+    
+    if len(peaks) > 0:
+        # Find first significant peak (fundamental frequency)
+        fundamental_lag = peaks[0]
         
-        if intervals:
-            avg_interval = np.mean(intervals)
-            hr = (SAMPLE_FREQ * 60) / avg_interval
-            
-            # Additional validation
-            if np.std(intervals) / avg_interval < 0.4:  # Consistent intervals
-                hr = max(30, min(200, hr))
-                
-                # Check signal strength
-                if np.mean(ir) > 30000:
-                    return hr, True
+        # Convert lag to heart rate
+        hr = 60.0 * SAMPLE_FREQ / fundamental_lag
+        
+        # Validate HR is in physiological range
+        if 30 <= hr <= 200:
+            return int(hr), True
     
     return -999, False
 
-def _improved_spo2_calculation(ir, red, hr_valid):
-    """Improved SpO2 calculation"""
-    if not hr_valid:
+def _calculate_hr_peak_detection(ir, debug=False):
+    """Improved peak detection method"""
+    # Apply smoothing
+    from scipy.ndimage import uniform_filter1d
+    ir_smooth = uniform_filter1d(ir, size=3)
+    
+    # Remove DC
+    ir_ac = ir_smooth - np.mean(ir_smooth)
+    
+    # Find peaks (valleys in PPG)
+    from scipy.signal import find_peaks
+    peaks, properties = find_peaks(
+        -ir_ac,  # Invert to find valleys
+        height=np.std(-ir_ac) * 0.5,
+        distance=int(SAMPLE_FREQ * 0.6),  # At least 0.6 seconds apart
+        prominence=np.std(ir_ac) * 0.3
+    )
+    
+    if len(peaks) >= 2:
+        intervals = np.diff(peaks)
+        
+        # Filter intervals to physiological range (0.3s to 2.0s)
+        valid_intervals = intervals[
+            (intervals >= int(SAMPLE_FREQ * 0.3)) & 
+            (intervals <= int(SAMPLE_FREQ * 2.0))
+        ]
+        
+        if len(valid_intervals) >= 1:
+            avg_interval = np.mean(valid_intervals)
+            hr = 60.0 * SAMPLE_FREQ / avg_interval
+            
+            # Additional validation: check consistency
+            if np.std(valid_intervals) / avg_interval < 0.3:  # Less than 30% variation
+                hr = int(hr)
+                return max(30, min(200, hr)), True
+    
+    return -999, False
+
+def _calculate_hr_fft(ir, debug=False):
+    """Calculate HR using FFT (frequency domain)"""
+    # Remove DC and apply windowing
+    ir_ac = ir - np.mean(ir)
+    window = np.hanning(len(ir_ac))
+    ir_windowed = ir_ac * window
+    
+    # Compute FFT
+    n = len(ir_windowed)
+    freqs = np.fft.rfftfreq(n, d=1/SAMPLE_FREQ)
+    fft_vals = np.abs(np.fft.rfft(ir_windowed))
+    
+    # Focus on physiological range (0.5 Hz to 4 Hz = 30 to 240 BPM)
+    mask = (freqs >= 0.5) & (freqs <= 4.0)
+    freqs = freqs[mask]
+    fft_vals = fft_vals[mask]
+    
+    if len(fft_vals) == 0:
         return -999, False
     
-    # Simple AC/DC method
+    # Find dominant frequency
+    dominant_idx = np.argmax(fft_vals)
+    dominant_freq = freqs[dominant_idx]
+    
+    # Convert to BPM
+    hr = dominant_freq * 60
+    
+    # Validate
+    if 30 <= hr <= 200 and fft_vals[dominant_idx] > np.mean(fft_vals) * 2:
+        return int(hr), True
+    
+    return -999, False
+
+def _calculate_spo2_simple(ir, red, debug=False):
+    """Simplified SpO2 calculation"""
+    # Calculate AC/DC ratios
     ir_ac = np.std(ir)
     ir_dc = np.mean(ir)
     red_ac = np.std(red)
@@ -106,68 +179,29 @@ def _improved_spo2_calculation(ir, red, hr_valid):
     if ir_dc == 0 or red_dc == 0:
         return -999, False
     
-    # Ratio of ratios
+    # Calculate ratio of ratios
     R = (red_ac / red_dc) / (ir_ac / ir_dc)
     
-    # Empirical formula (based on typical calibration)
-    if 0.1 < R < 3.0:
-        # Quadratic approximation
-        spo2 = 104 - 17 * R
+    # Empirical calibration (can be tuned)
+    if 0.1 < R < 2.0:
+        # Linear approximation (needs calibration with real data)
+        spo2 = 110 - 25 * R
         
         # Clamp to reasonable range
         spo2 = max(70, min(100, spo2))
         
-        # Simple validation
-        if 80 <= spo2 <= 100:
-            return spo2, True
+        # Additional validation
+        if 90 <= spo2 <= 100:
+            return round(spo2, 1), True
+        elif 70 <= spo2 < 90:
+            return round(spo2, 1), True
     
     return -999, False
 
-# Keep all original functions for compatibility
+# Keep original functions for compatibility
 def find_peaks(x, size, min_height, min_dist, max_num):
-    """Original implementation for compatibility"""
-    ir_valley_locs, n_peaks = find_peaks_above_min_height(x, size, min_height, max_num)
-    ir_valley_locs, n_peaks = remove_close_peaks(n_peaks, ir_valley_locs, x, min_dist)
-    n_peaks = min([n_peaks, max_num])
-    return ir_valley_locs, n_peaks
-
-def find_peaks_above_min_height(x, size, min_height, max_num):
-    """Original implementation"""
-    i = 0
-    n_peaks = 0
-    ir_valley_locs = []
-    while i < size - 1:
-        if x[i] > min_height and x[i] > x[i-1]:
-            n_width = 1
-            while i + n_width < size - 1 and x[i] == x[i+n_width]:
-                n_width += 1
-            if x[i] > x[i+n_width] and n_peaks < max_num:
-                ir_valley_locs.append(i)
-                n_peaks += 1
-                i += n_width + 1
-            else:
-                i += n_width
-        else:
-            i += 1
-    return ir_valley_locs, n_peaks
-
-def remove_close_peaks(n_peaks, ir_valley_locs, x, min_dist):
-    """Original implementation"""
-    sorted_indices = sorted(ir_valley_locs, key=lambda i: x[i])
-    sorted_indices.reverse()
-    
-    i = -1
-    while i < n_peaks:
-        old_n_peaks = n_peaks
-        n_peaks = i + 1
-        j = i + 1
-        while j < old_n_peaks:
-            n_dist = (sorted_indices[j] - sorted_indices[i]) if i != -1 else (sorted_indices[j] + 1)
-            if n_dist > min_dist or n_dist < -1 * min_dist:
-                sorted_indices[n_peaks] = sorted_indices[j]
-                n_peaks += 1
-            j += 1
-        i += 1
-    
-    sorted_indices[:n_peaks] = sorted(sorted_indices[:n_peaks])
-    return sorted_indices, n_peaks
+    """Dummy implementation for compatibility"""
+    from scipy.signal import find_peaks as sp_find_peaks
+    peaks, _ = sp_find_peaks(x[:size], height=min_height, distance=min_dist)
+    peaks = peaks[:max_num]
+    return list(peaks), len(peaks)
