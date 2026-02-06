@@ -6,7 +6,7 @@ import numpy as np
 SAMPLE_FREQ = 25
 # taking moving average of 4 samples when calculating HR
 # in algorithm.h, "DONOT CHANGE" comment is attached
-MA_SIZE = 5
+MA_SIZE = 4
 # sampling frequency * 4 (in algorithm.h)
 BUFFER_SIZE = 100
 
