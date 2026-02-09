@@ -25,7 +25,7 @@ except ImportError:
 
 # --- Initialize sensors ---
 hrm = HeartRateMonitor(print_raw=False, print_result=True)
-# mlx = MLX90614()
+mlx = MLX90614()
 mpu = mpu6050(0x68)
 
 # Start heart rate monitoring thread
@@ -51,7 +51,7 @@ with open(csv_file, "w", newline="") as f:
             arr = bool(hrm.rr_intervals[-1]) if hrm.rr_intervals else False
 
             # # Temperature
-            # temp = mlx.get_object_1()  # Celsius
+            temp = mlx.get_object_1()  # Celsius
 
             # Motion
             accel = mpu.get_accel_data()
@@ -62,18 +62,18 @@ with open(csv_file, "w", newline="") as f:
 
             # Write to CSV
             # writer.writerow([timestamp, bpm, arr, temp, ax, ay, az, piezo_val])
-            writer.writerow([timestamp, bpm, arr, ax, ay, az])
+            writer.writerow([timestamp, bpm, arr,temp, ax, ay, az])
 
             # Print live values
             # print(f"BPM: {bpm:.1f} | Arrhythmia: {arr} | Temp: {temp:.1f}C | "
             #       f"Accel: ({ax:.2f}, {ay:.2f}, {az:.2f}) | Piezo: {piezo_val}")
-            print(f"BPM: {bpm:.1f} | Arrhythmia: {arr} | Accel: ({ax:.2f}, {ay:.2f}, {az:.2f})")
+            print(f"BPM: {bpm:.1f} | Arrhythmia: {arr} | Temp: {temp:.1f}C | Accel: ({ax:.2f}, {ay:.2f}, {az:.2f})")
 
             time.sleep(1)  # 1 Hz logging
     except KeyboardInterrupt:
         print("Data collection interrupted by user.")
 
 # Stop heart rate sensor
-# hrm.stop_sensor()
+hrm.stop_sensor()
 print(f"Data saved to {csv_file}")
 print("Testing complete.")
