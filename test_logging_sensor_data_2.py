@@ -1,7 +1,7 @@
 import time
 import csv
 from updated_heartrate_monitor import HeartRateMonitor
-from temperature_sensor import MLX90614
+from temperature_sensor.temperature_sensor import MLX90614
 from step_counter_v2 import StepCounter
 
 # --- Initialize sensors ---
