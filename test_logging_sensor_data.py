@@ -5,7 +5,7 @@ import time
 import csv
 import threading
 import numpy as np
-from heartrate_sensor.updated_heartrate_monitor import HeartRateMonitor
+from updated_heartrate_monitor import HeartRateMonitor
 try:
     from temperature_sensor import MLX90614
 except ImportError:
