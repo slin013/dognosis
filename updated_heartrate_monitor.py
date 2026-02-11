@@ -41,6 +41,9 @@ class HeartRateMonitor:
         self.fs = 100  # Hz
         self.buffer_size = self.fs * 10  # 10 seconds
 
+        self.bpm = 0
+        self.arrhythmia_flag = False
+
     def start_sensor(self):
         self.running = True
         self.thread = threading.Thread(target=self._run)
@@ -91,11 +94,10 @@ class HeartRateMonitor:
         self.rr_intervals.extend(rr_intervals)
         self.rr_intervals = self.rr_intervals[-30:]
 
-        bpm = 60 / np.mean(rr_intervals)
-        arrhythmia = detect_arrhythmia(self.rr_intervals)
-
+        self.bpm = 60 / np.mean(rr_intervals)
+        self.arrhythmia_flag = detect_arrhythmia(self.rr_intervals)
         if self.print_raw:
             print(filtered[-1])
 
         if self.print_result:
-            print(f"BPM: {bpm:.1f} | Arrhythmia Flag: {arrhythmia}")
+            print(f"BPM: {self.bpm:.1f} | Arrhythmia Flag: {self.arrhythmia_flag}")

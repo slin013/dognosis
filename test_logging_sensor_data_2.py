@@ -41,12 +41,9 @@ with open(csv_file, "a", newline="") as f:
         while time.time() < end_time:
             timestamp = time.time()
 
-            bpm = getattr(hrm, "bpm", 0)
-            if hrm.rr_intervals:
-                avg_rr = sum(hrm.rr_intervals) / len(hrm.rr_intervals)
-                arrhythmia = abs(hrm.rr_intervals[-1] - avg_rr) > 0
-            else:
-                arrhythmia = False
+            bpm = hrm.bpm
+            arrhythmia = hrm.arrhythmia_flag
+
 
             temp = temp_sensor.readAmbientTemperature()
             # ---- Step Data ----
