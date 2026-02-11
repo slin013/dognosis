@@ -2,7 +2,7 @@ import time
 import csv
 from updated_heartrate_monitor import HeartRateMonitor
 from temperature_sensor.temperature_sensor import MLX90614
-from step_counter_v2 import StepCounter
+from step_counter_callable import StepCounter
 
 # --- Initialize sensors ---
 hrm = HeartRateMonitor(print_raw=False, print_result=False)
