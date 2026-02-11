@@ -1,99 +1,145 @@
-# Adds step length detection
+# Adds step length detection - new version to try - based on step_counter_v2
 import time
 import math
+import threading
 from mpu6050 import mpu6050
 
-# -----------------------------
-# Dog + sensor parameters
-# -----------------------------
-SAMPLE_RATE = 60        # dogs need higher temporal resolution
-DURATION = 30
+SAMPLE_RATE = 50
+MIN_STEP_INTERVAL = 0.35
 CALIBRATION_TIME = 3
 
-# Gait timing (Springer Spaniel walking/trotting)
-MIN_STEP_INTERVAL = 0.22   # front leg cadence
-MAX_STEP_INTERVAL = 0.7
+# --- Dog scaling parameters ---
+# These are tunable and NOT hardcoded to one dog
+DEFAULT_STRIDE_FACTOR = 0.45  # stride ≈ 45% of body length
 
-DOG_WEIGHT_LB = 50
-DOG_SHOULDER_IN = 25
 
-# Step-length scaling (empirical)
-STEP_SCALE = 0.42   # dogs have shorter effective step than humans
-
-# -----------------------------
-# Axis-weighted armpit motion
-# -----------------------------
-def armpit_motion(accel):
-    """
-    Emphasize foreleg swing (X) and vertical paw strike (Z)
-    """
+def accel_magnitude(accel):
     return math.sqrt(
-        (1.2 * accel['x'])**2 +
-        (0.6 * accel['y'])**2 +
-        (1.5 * accel['z'])**2
+        accel['x']**2 +
+        accel['y']**2 +
+        accel['z']**2
     )
 
 
-if __name__ == "__main__":
-    mpu = mpu6050(0x68)
+class StepCounter:
+    def __init__(self, address=0x68, dog_length_in=20):
+        self.mpu = mpu6050(address)
 
-    print("Calibrating dog baseline motion...")
-    calib = []
-    start = time.time()
+        self.dog_length_in = dog_length_in
+        self.stride_factor = DEFAULT_STRIDE_FACTOR
 
-    while time.time() - start < CALIBRATION_TIME:
-        a = mpu.get_accel_data(g=True)
-        calib.append(armpit_motion(a))
-        time.sleep(1 / SAMPLE_RATE)
+        self.steps = 0
+        self.step_times = []
+        self.step_lengths = []
 
-    mean = sum(calib) / len(calib)
-    std = (sum((x - mean)**2 for x in calib) / len(calib))**0.5
+        self.last_step_time = 0
+        self.running = False
 
-    # Dog harness noise is higher → slightly higher K
-    K = 2.0
-    threshold = max(mean + K * std, 0.18)
+        self.threshold = 0
 
-    print(f"Calibration complete")
-    print(f"Mean={mean:.3f}, Std={std:.3f}, Threshold={threshold:.3f}\n")
+    # ------------------------
+    # Calibration
+    # ------------------------
+    def calibrate(self):
+        print(f"Calibrating IMU at address {hex(self.mpu.address)}...")
+        samples = []
+        start = time.time()
 
-    steps = 0
-    last_step_time = 0
-    start_time = time.time()
+        while time.time() - start < CALIBRATION_TIME:
+            accel = self.mpu.get_accel_data(g=True)
+            samples.append(accel_magnitude(accel))
+            time.sleep(1 / SAMPLE_RATE)
 
-    prev_dyn = 0
-    prev_derivative = 0
+        mean = sum(samples) / len(samples)
+        std = (
+            sum((x - mean) ** 2 for x in samples) / len(samples)
+        ) ** 0.5
 
-    print("Detecting dog steps...\n")
+        K = 1.6
+        self.threshold = mean + K * std
 
-    while time.time() - start_time < DURATION:
-        a = mpu.get_accel_data(g=True)
-        mag = armpit_motion(a)
-
-        dyn = mag - mean
-        derivative = dyn - prev_dyn
-        t = time.time()
-
-        # Impulse-based peak detection
-        is_step = (
-            dyn > threshold and
-            prev_derivative > 0 and
-            derivative < 0 and
-            MIN_STEP_INTERVAL < (t - last_step_time) < MAX_STEP_INTERVAL
+        print(
+            f"Calibration done | "
+            f"Threshold={self.threshold:.3f}"
         )
 
-        if is_step:
-            steps += 1
-            last_step_time = t
-            print(f"Step {steps} @ {t - start_time:.2f}s | impulse={dyn:.3f}")
+    # ------------------------
+    # Start / Stop
+    # ------------------------
+    def start(self):
+        self.running = True
+        self.thread = threading.Thread(target=self._run)
+        self.thread.start()
 
-        prev_dyn = dyn
-        prev_derivative = derivative
-        time.sleep(1 / SAMPLE_RATE)
+    def stop(self):
+        self.running = False
+        self.thread.join()
 
-    print(f"\nTotal detected front-leg steps: {steps}")
+    # ------------------------
+    # Core detection loop
+    # ------------------------
+    def _run(self):
+        while self.running:
+            accel = self.mpu.get_accel_data(g=True)
+            mag = accel_magnitude(accel)
 
-    # Convert to distance (front-leg steps ≈ half stride)
-    stride_length = DOG_SHOULDER_IN * STEP_SCALE
-    distance_in = (steps / 2) * stride_length
+            now = time.time()
 
-    print(f"Estimated distance: {distance_in / 12:.2f} ft")
+            if (
+                mag > self.threshold and
+                (now - self.last_step_time) > MIN_STEP_INTERVAL
+            ):
+                self._register_step(now)
+
+            time.sleep(1 / SAMPLE_RATE)
+
+    # ------------------------
+    # Step registration logic
+    # ------------------------
+    def _register_step(self, timestamp):
+        self.steps += 1
+
+        if self.step_times:
+            dt = timestamp - self.step_times[-1]
+
+            # Step frequency (Hz)
+            freq = 1.0 / dt if dt > 0 else 0
+
+            # Normalize realistic dog gait range
+            # typical walking: 1–3 Hz
+            freq_norm = min(max(freq / 3.0, 0.6), 1.3)
+
+            # Step length estimation
+            # Based on body length scaling
+            step_length = (
+                self.dog_length_in *
+                self.stride_factor /
+                freq_norm
+            )
+
+            self.step_lengths.append(step_length)
+
+            print(
+                f"[{hex(self.mpu.address)}] "
+                f"Step {self.steps} | "
+                f"Len={step_length:.2f} in"
+            )
+
+        else:
+            print(f"[{hex(self.mpu.address)}] Step {self.steps}")
+
+        self.step_times.append(timestamp)
+        self.last_step_time = timestamp
+
+    # ------------------------
+    # Public getters
+    # ------------------------
+    def get_latest_step_length(self):
+        if self.step_lengths:
+            return self.step_lengths[-1]
+        return 0
+
+    def get_average_step_length(self):
+        if self.step_lengths:
+            return sum(self.step_lengths) / len(self.step_lengths)
+        return 0

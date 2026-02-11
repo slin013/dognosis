@@ -23,7 +23,9 @@ with open(csv_file, "w", newline="") as f:
     #     "BPM",
     #     "Arrhythmia",
     #     "Temperature_C",
-    #     "Step_Count"
+    #     "Step_Count",
+    #     "Latest_Step_Length_in",
+    #     "Avg_Step_Length_in"
     # ])
     writer.writerow([
         "timestamp",
@@ -46,14 +48,19 @@ with open(csv_file, "w", newline="") as f:
             )
 
             # temp = temp_sensor.get_object_1()
+            # ---- Step Data ----
             steps = step_counter.steps
+            latest_len = step_counter.get_latest_step_length()
+            avg_len = step_counter.get_average_step_length()
 
             # writer.writerow([
             #     timestamp,
             #     bpm,
             #     arrhythmia,
             #     temp,
-            #     steps
+            #     steps,
+            #     latest_len,
+            #     avg_len
             # ])
             writer.writerow([
                 timestamp,
@@ -66,7 +73,9 @@ with open(csv_file, "w", newline="") as f:
             #     f"BPM={bpm:.1f} | "
             #     f"Arr={arrhythmia} | "
             #     f"Temp={temp:.1f}C | "
-            #     f"Steps={steps}"
+            #     f"Steps={steps} | "
+            #     f"LastLen={latest_len:.2f} in | "
+            #     f"AvgLen={avg_len:.2f} in"
             # )
             print(
                 f"BPM={bpm:.1f} | "
