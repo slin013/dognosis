@@ -1,5 +1,6 @@
 import time
 import csv
+import os
 from updated_heartrate_monitor import HeartRateMonitor
 from temperature_sensor.temperature_sensor import MLX90614
 from step_counter_v3 import StepCounter
@@ -16,17 +17,22 @@ hrm.start_sensor()
 
 csv_file = "dog_harness_data.csv"
 
-with open(csv_file, "w", newline="") as f:
+file_exists = os.path.isfile(csv_file)
+
+
+with open(csv_file, "a", newline="") as f:
     writer = csv.writer(f)
-    writer.writerow([
-        "timestamp",
-        "BPM",
-        "Arrhythmia",
-        "Temperature_C",
-        "Step_Count",
-        "Latest_Step_Length_in",
-        "Avg_Step_Length_in"
-    ])
+    # Only write header if file does not already exist
+    if not file_exists:
+        writer.writerow([
+            "timestamp",
+            "BPM",
+            "Arrhythmia",
+            "Temperature_C",
+            "Step_Count",
+            "Latest_Step_Length_in",
+            "Avg_Step_Length_in"
+        ])
 
     print("Logging data for 30 seconds...")
     end_time = time.time() + 30  # Hard stop time
@@ -61,7 +67,7 @@ with open(csv_file, "w", newline="") as f:
             print(
                 f"BPM={bpm:.1f} | "
                 f"Arr={arrhythmia} | "
-                f"Temp={temp:.1f}C | "
+                f"Temp={temp:.1f}F | "
                 f"Steps={steps} | "
                 f"LastLen={latest_len:.2f} in | "
                 f"AvgLen={avg_len:.2f} in"
