@@ -42,7 +42,7 @@ with open(csv_file, "w", newline="") as f:
             else:
                 arrhythmia = False
 
-            temp = temp_sensor.get_object_1()
+            temp = temp_sensor.readAmbientTemperature()
             # ---- Step Data ----
             steps = step_counter.steps
             latest_len = step_counter.get_latest_step_length() or 0
