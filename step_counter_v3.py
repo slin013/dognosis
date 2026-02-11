@@ -143,3 +143,42 @@ class StepCounter:
         if self.step_lengths:
             return sum(self.step_lengths) / len(self.step_lengths)
         return 0
+
+
+# MAIN (only runs if script executed directly)
+# =========================================================
+if __name__ == "__main__":
+
+    DURATION = 30
+
+    step_counter = StepCounter(dog_length_in=20)
+
+    step_counter.calibrate()
+    step_counter.start()
+
+    print("\nRunning step detection for 30 seconds...\n")
+
+    start_time = time.time()
+
+    try:
+        while time.time() - start_time < DURATION:
+            time.sleep(1)
+
+            latest_len = step_counter.get_latest_step_length()
+            avg_len = step_counter.get_average_step_length()
+
+            print(
+                f"[LIVE] Steps={step_counter.steps} | "
+                f"LastLen={latest_len:.2f} in | "
+                f"AvgLen={avg_len:.2f} in"
+            )
+
+    except KeyboardInterrupt:
+        print("Interrupted by user.")
+
+    step_counter.stop()
+
+    print("\n----- SUMMARY -----")
+    print(f"Total Steps: {step_counter.steps}")
+    print(f"Average Step Length: {step_counter.get_average_step_length():.2f} in")
+    print("Done.")
