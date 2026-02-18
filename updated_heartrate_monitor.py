@@ -61,7 +61,6 @@ class HeartRateMonitor:
             if ir < 5000:
                 time.sleep(1 / self.fs)
                 continue
-            print("IR: ", ir)
             self.ir_buffer.append(ir)
 
             if len(self.ir_buffer) > self.buffer_size:
@@ -96,8 +95,6 @@ class HeartRateMonitor:
 
         self.bpm = 60 / np.mean(rr_intervals)
         self.arrhythmia_flag = detect_arrhythmia(self.rr_intervals)
-        print("PROCCESS SIGNAL RUNNING")
-        print("Calculated BPM: ", self.bpm)
         if self.print_raw:
             print(filtered[-1])
 
