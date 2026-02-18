@@ -20,7 +20,8 @@ step_counter.calibrate()
 step_counter.start()
 hrm.start_sensor()
 
-csv_file = "dog_harness_data.csv"
+timestamp = time.strftime("%Y-%m-%d_%H-%M-%S")
+csv_file = "dog_harness_data__{timestamp}.csv"
 
 file_exists = os.path.isfile(csv_file)
 
@@ -39,8 +40,8 @@ with open(csv_file, "a", newline="") as f:
             "Avg_Step_Length_in"
         ])
 
-    print("Logging data for 30 seconds...")
-    end_time = time.time() + 30  # Hard stop time
+    print("Logging data for 600 seconds...")
+    end_time = time.time() + 600  # Hard stop time
     # ---- Setup Live Plot ----
     plt.ion()
 
