@@ -21,7 +21,7 @@ step_counter.start()
 hrm.start_sensor()
 
 timestamp = time.strftime("%Y-%m-%d_%H-%M-%S")
-csv_file = "dog_harness_data__{timestamp}.csv"
+csv_file = f"dog_harness_data__{timestamp}.csv"
 
 file_exists = os.path.isfile(csv_file)
 
