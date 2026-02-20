@@ -5,7 +5,7 @@ import csv
 import os
 from updated_heartrate_monitor import HeartRateMonitor
 from temperature_sensor.temperature_sensor import MLX90614
-from step_counter_v3 import StepCounter
+from dual_IMU_step_counter_1 import DualIMUStepAnalyzer
 import matplotlib.pyplot as plt
 from collections import deque
 
@@ -13,7 +13,7 @@ from collections import deque
 # --- Initialize sensors ---
 hrm = HeartRateMonitor(print_raw=False, print_result=False)
 temp_sensor = MLX90614()
-step_counter = StepCounter()
+step_counter = DualIMUStepAnalyzer()
 
 # Start sensors
 step_counter.calibrate()
@@ -37,7 +37,9 @@ with open(csv_file, "a", newline="") as f:
             "Temperature_C",
             "Step_Count",
             "Latest_Step_Length_in",
-            "Avg_Step_Length_in"
+            "Avg_Step_Length_in",
+            "Asymmetry",
+            "Limp"
         ])
 
     print("Logging data for 600 seconds...")
@@ -52,6 +54,8 @@ with open(csv_file, "a", newline="") as f:
     temp_data = []
     step_data = []
     step_len_data = []
+    asymmetry_data = []
+    
 
     axs[0].set_title("Heart Rate (BPM)")
     axs[1].set_title("Temperature")
@@ -74,8 +78,10 @@ with open(csv_file, "a", newline="") as f:
             temp = temp_sensor.readAmbientTemperature()
             # ---- Step Data ----
             steps = step_counter.steps
-            latest_len = step_counter.get_latest_step_length() or 0
+            latest_len = step_counter.get_total_steps() or 0
             avg_len = step_counter.get_average_step_length() or 0
+            asymmetry = step_counter.get_step_asymmetry() or 0
+            limp = step_counter.detect_limp() or 0
             writer.writerow([
                 timestamp,
                 bpm,
@@ -83,7 +89,9 @@ with open(csv_file, "a", newline="") as f:
                 temp,
                 steps,
                 latest_len,
-                avg_len
+                avg_len,
+                asymmetry,
+                limp
             ])
 
             # ---- Store Data ----
@@ -94,6 +102,7 @@ with open(csv_file, "a", newline="") as f:
             temp_data.append(temp)
             step_data.append(steps)
             step_len_data.append(avg_len)
+            asymmetry_data.append(asymmetry)
 
             # ---- Update Plots ----
             axs[0].cla()
@@ -123,7 +132,10 @@ with open(csv_file, "a", newline="") as f:
                 f"Temp={temp:.1f}F | "
                 f"Steps={steps} | "
                 f"LastLen={latest_len:.2f} in | "
-                f"AvgLen={avg_len:.2f} in"
+                f"AvgLen={avg_len:.2f} in | "
+                f"Asymmetry={asymmetry:.2f} | "
+                f"Limp={limp:.2f} "
+
             )
             
 
