@@ -85,11 +85,22 @@ class StepCounter:
 
             now = time.time()
 
+            # if (
+            #     mag > self.threshold and
+            #     (now - self.last_step_time) > MIN_STEP_INTERVAL
+            # ):
+            #     self._register_step(now)
+
+            # time.sleep(1 / SAMPLE_RATE)
+
             if (
-                mag > self.threshold and
-                (now - self.last_step_time) > MIN_STEP_INTERVAL
+            previous_mag <= self.threshold and
+            mag > self.threshold and
+            (now - self.last_step_time) > MIN_STEP_INTERVAL
             ):
                 self._register_step(now)
+
+            previous_mag = mag
 
             time.sleep(1 / SAMPLE_RATE)
 

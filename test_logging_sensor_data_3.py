@@ -77,8 +77,8 @@ with open(csv_file, "a", newline="") as f:
 
             temp = temp_sensor.readAmbientTemperature()
             # ---- Step Data ----
-            steps = step_counter.steps
-            latest_len = step_counter.get_total_steps() or 0
+            steps = step_counter.get_total_steps()
+            latest_len = step_counter.left.get_latest_step_length()
             avg_len = step_counter.get_average_step_length() or 0
             asymmetry = step_counter.get_step_asymmetry() or 0
             limp = step_counter.detect_limp() or 0
@@ -95,7 +95,7 @@ with open(csv_file, "a", newline="") as f:
             ])
 
             # ---- Store Data ----
-            elapsed = time.time() - (end_time - 30)
+            elapsed = time.time() - (end_time - 600)
 
             time_data.append(elapsed)
             bpm_data.append(bpm)
@@ -134,7 +134,7 @@ with open(csv_file, "a", newline="") as f:
                 f"LastLen={latest_len:.2f} in | "
                 f"AvgLen={avg_len:.2f} in | "
                 f"Asymmetry={asymmetry:.2f} | "
-                f"Limp={limp:.2f} "
+                f"Limp={limp} "
 
             )
             
