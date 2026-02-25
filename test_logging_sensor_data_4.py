@@ -14,7 +14,6 @@ from collections import deque
 hrm = HeartRateMonitor(print_raw=False, print_result=False)
 temp_sensor = MLX90614()
 step_counter = DualIMUStepAnalyzer()
-rawIMU = mpu6050()
 rawIR = 0
 rawRed = 0
 rawTemp = 0
