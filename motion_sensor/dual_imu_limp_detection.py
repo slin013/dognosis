@@ -16,7 +16,7 @@
     # Otherwise you need an I2C multiplexer.
 
 import time
-from step_counter_v2 import StepCounter
+from motion_sensor.step_counter_v2 import StepCounter
 
 DURATION = 30
 LIMP_THRESHOLD = 0.20  # 20% asymmetry
