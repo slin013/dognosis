@@ -1,18 +1,26 @@
-# Adds step length detection - new version to try - based on step_counter_v2
+# Adds step length detection - corrected version
+# Fixes false steps when sensor is upside down
+# Gravity removed per-axis before magnitude calculation
+
 import time
 import math
 import threading
 from mpu6050 import mpu6050
 
+# ------------------------
+# Constants
+# ------------------------
 SAMPLE_RATE = 50
 MIN_STEP_INTERVAL = 0.35
 CALIBRATION_TIME = 3
 
 # --- Dog scaling parameters ---
-# These are tunable and NOT hardcoded to one dog
 DEFAULT_STRIDE_FACTOR = 0.45  # stride ≈ 45% of body length
 
 
+# ------------------------
+# Utility functions
+# ------------------------
 def accel_magnitude(accel):
     return math.sqrt(
         accel['x']**2 +
@@ -21,6 +29,9 @@ def accel_magnitude(accel):
     )
 
 
+# ------------------------
+# Step Counter Class
+# ------------------------
 class StepCounter:
     def __init__(self, address=0x68, dog_length_in=20):
         self.mpu = mpu6050(address)
@@ -37,6 +48,29 @@ class StepCounter:
 
         self.threshold = 0
 
+        # Gravity estimate for high-pass filtering
+        self.gravity = {'x': 0, 'y': 0, 'z': 0}
+        self.alpha = 0.9  # gravity LPF constant
+
+    # ------------------------
+    # Gravity removal
+    # ------------------------
+    def remove_gravity(self, accel):
+        """
+        High-pass filter to remove gravity per axis.
+        Makes detection orientation-independent.
+        """
+        lin = {}
+
+        for axis in ['x', 'y', 'z']:
+            self.gravity[axis] = (
+                self.alpha * self.gravity[axis] +
+                (1 - self.alpha) * accel[axis]
+            )
+            lin[axis] = accel[axis] - self.gravity[axis]
+
+        return lin
+
     # ------------------------
     # Calibration
     # ------------------------
@@ -47,7 +81,9 @@ class StepCounter:
 
         while time.time() - start < CALIBRATION_TIME:
             accel = self.mpu.get_accel_data(g=True)
-            samples.append(accel_magnitude(accel))
+            accel_lin = self.remove_gravity(accel)
+            mag = accel_magnitude(accel_lin)
+            samples.append(mag)
             time.sleep(1 / SAMPLE_RATE)
 
         mean = sum(samples) / len(samples)
@@ -81,7 +117,8 @@ class StepCounter:
     def _run(self):
         while self.running:
             accel = self.mpu.get_accel_data(g=True)
-            mag = accel_magnitude(accel)
+            accel_lin = self.remove_gravity(accel)
+            mag = accel_magnitude(accel_lin)
 
             now = time.time()
 
@@ -92,17 +129,6 @@ class StepCounter:
                 self._register_step(now)
 
             time.sleep(1 / SAMPLE_RATE)
-
-            # if (
-            # previous_mag <= self.threshold and
-            # mag > self.threshold and
-            # (now - self.last_step_time) > MIN_STEP_INTERVAL
-            # ):
-            #     self._register_step(now)
-
-            # previous_mag = mag
-
-            # time.sleep(1 / SAMPLE_RATE)
 
     # ------------------------
     # Step registration logic
@@ -117,11 +143,9 @@ class StepCounter:
             freq = 1.0 / dt if dt > 0 else 0
 
             # Normalize realistic dog gait range
-            # typical walking: 1–3 Hz
             freq_norm = min(max(freq / 3.0, 0.6), 1.3)
 
             # Step length estimation
-            # Based on body length scaling
             step_length = (
                 self.dog_length_in *
                 self.stride_factor /
@@ -156,7 +180,8 @@ class StepCounter:
         return 0
 
 
-# MAIN (only runs if script executed directly)
+# =========================================================
+# MAIN
 # =========================================================
 if __name__ == "__main__":
 
