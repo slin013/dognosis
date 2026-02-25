@@ -54,13 +54,13 @@ with open(csv_file, "a", newline="") as f:
     #step_len_data = []
     #asymmetry_data = []
 
-    axs[0].set_title("Heart Rate (BPM)")
+    axs.set_title("Heart Rate (BPM)")
     #axs[1].set_title("Temperature")
     #axs[2].set_title("Step Count")
     #axs[3].set_title("Step Length (inches)")
 
-    for ax in axs:
-        ax.grid(True)
+    #for ax in axs:
+    axs.grid(True)
 
     plt.tight_layout()
 
@@ -94,19 +94,19 @@ with open(csv_file, "a", newline="") as f:
             bpm_data.append(bpm)
 
             # ---- Update Plots ----
-            axs[0].cla()
+            axs.cla()
             #axs[1].cla()
             #axs[2].cla()
             #axs[3].cla()
 
-            axs[0].plot(time_data, bpm_data)
-            axs[0].set_title("Heart Rate (BPM)")
+            axs.plot(time_data, bpm_data)
+            axs.set_title("Heart Rate (BPM)")
 
             """
             axs[1].plot(time_data, temp_data)
             axs[1].set_title("Temperature (F)")
 
-            #axs[2].plot(time_data, step_data)
+            axs[2].plot(time_data, step_data)
             axs[2].set_title("Step Count")
 
             axs[3].plot(time_data, step_len_data)
