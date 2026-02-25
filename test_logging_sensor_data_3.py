@@ -42,8 +42,8 @@ with open(csv_file, "a", newline="") as f:
             "Limp"
         ])
 
-    print("Logging data for 600 seconds...")
-    end_time = time.time() + 600  # Hard stop time
+    print("Logging data for 1000 seconds...")
+    end_time = time.time() + 1000  # Hard stop time
     # ---- Setup Live Plot ----
     plt.ion()
 
@@ -95,7 +95,7 @@ with open(csv_file, "a", newline="") as f:
             ])
 
             # ---- Store Data ----
-            elapsed = time.time() - (end_time - 600)
+            elapsed = time.time() - (end_time - 1000)
 
             time_data.append(elapsed)
             bpm_data.append(bpm)

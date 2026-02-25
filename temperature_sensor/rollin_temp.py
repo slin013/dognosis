@@ -10,7 +10,7 @@ if __name__ == "__main__":
             print("Object:", sensor.readObjectTemperature())
             print("Ambient:", sensor.readAmbientTemperature())
             print("---")
-            time.sleep(20)  # wait 20 seconds
+            time.sleep(2)  # wait 20 seconds
     except KeyboardInterrupt:
         print("Stopped by user")
 
