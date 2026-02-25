@@ -71,13 +71,9 @@ with open(csv_file, "a", newline="") as f:
             bpm = hrm.bpm
             arrhythmia = hrm.arrhythmia_flag
 
-            # raw hr data
-            rawIR = hrm.PrintRawIR()
-            rawRed = hrm.PrintRawRed()
-            rawTemp = temp_sensor.PrintRawTemp()
+        
 
 
-            temp = temp_sensor.readAmbientTemperature()
             # ---- Step Data ----
             writer.writerow([
                 timestamp,
