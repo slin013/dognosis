@@ -29,15 +29,15 @@ with open(csv_file, "a", newline="") as f:
             "timestamp",
             "BPM",
             "Arrhythmia",
-            "Temperature_C",
-            "Step_Count",
-            "Latest_Step_Length_in",
-            "Avg_Step_Length_in",
-            "Asymmetry",
-            "Limp",
+            #"Temperature_C",
+            #"Step_Count",
+            #"Latest_Step_Length_in",
+            #"Avg_Step_Length_in",
+            #"Asymmetry",
+            #"Limp",
             "raw-ir",
             "raw-red",
-            "raw-temperature",
+            #"raw-temperature",
         ])
 
     print("Logging data for 600 seconds...")
@@ -45,19 +45,19 @@ with open(csv_file, "a", newline="") as f:
     # ---- Setup Live Plot ----
     plt.ion()
 
-    fig, axs = plt.subplots(4, 1, figsize=(8, 10), sharex=True)
+    fig, axs = plt.subplots(1, 1, figsize=(8, 10), sharex=True)
 
     time_data = []
     bpm_data = []
-    temp_data = []
-    step_data = []
-    step_len_data = []
-    asymmetry_data = []
+    #temp_data = []
+    #step_data = []
+    #step_len_data = []
+    #asymmetry_data = []
 
     axs[0].set_title("Heart Rate (BPM)")
-    axs[1].set_title("Temperature")
-    axs[2].set_title("Step Count")
-    axs[3].set_title("Step Length (inches)")
+    #axs[1].set_title("Temperature")
+    #axs[2].set_title("Step Count")
+    #axs[3].set_title("Step Length (inches)")
 
     for ax in axs:
         ax.grid(True)
@@ -95,21 +95,23 @@ with open(csv_file, "a", newline="") as f:
 
             # ---- Update Plots ----
             axs[0].cla()
-            axs[1].cla()
-            axs[2].cla()
-            axs[3].cla()
+            #axs[1].cla()
+            #axs[2].cla()
+            #axs[3].cla()
 
             axs[0].plot(time_data, bpm_data)
             axs[0].set_title("Heart Rate (BPM)")
 
+            """
             axs[1].plot(time_data, temp_data)
             axs[1].set_title("Temperature (F)")
 
-            axs[2].plot(time_data, step_data)
+            #axs[2].plot(time_data, step_data)
             axs[2].set_title("Step Count")
 
             axs[3].plot(time_data, step_len_data)
             axs[3].set_title("Avg Step Length (in)")
+            """
 
             plt.pause(0.01)
 
@@ -118,12 +120,12 @@ with open(csv_file, "a", newline="") as f:
             print(
                 f"BPM={bpm:.1f} | "
                 f"Arr={arrhythmia} | "
-                f"Temp={temp:.1f}F | "
-                f"Steps={steps} | "
-                f"LastLen={latest_len:.2f} in | "
-                f"AvgLen={avg_len:.2f} in | "
-                f"Asymmetry={asymmetry:.2f} | "
-                f"Limp={limp} "
+                #f"Temp={temp:.1f}F | "
+                #f"Steps={steps} | "
+                #f"LastLen={latest_len:.2f} in | "
+                #f"AvgLen={avg_len:.2f} in | "
+                #f"Asymmetry={asymmetry:.2f} | "
+                #f"Limp={limp} "
 
             )
 
