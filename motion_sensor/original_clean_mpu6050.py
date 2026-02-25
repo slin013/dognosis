@@ -9,9 +9,6 @@ https://github.com/m-rtijn/mpu6050
 """
 
 import smbus
-import time
-import math
-import threading
 
 class mpu6050:
 
@@ -68,38 +65,11 @@ class mpu6050:
     GYRO_CONFIG = 0x1B
     MPU_CONFIG = 0x1A
 
-    # ------------------------
-    # Constants (Step Counter)
-    # ------------------------
-    SAMPLE_RATE = 50
-    MIN_STEP_INTERVAL = 0.35
-    CALIBRATION_TIME = 3
-
-    # --- Dog scaling parameters ---
-    DEFAULT_STRIDE_FACTOR = 0.45  # stride ≈ 45% of body length
-
     def __init__(self, address, bus=1):
         self.address = address
         self.bus = smbus.SMBus(bus)
         # Wake up the MPU-6050 since it starts in sleep mode
         self.bus.write_byte_data(self.address, self.PWR_MGMT_1, 0x00)
-
-
-        self.dog_length_in = 20
-        self.stride_factor = self.DEFAULT_STRIDE_FACTOR
-
-        self.steps = 0
-        self.step_times = []
-        self.step_lengths = []
-
-        self.last_step_time = 0
-        self.running = False
-
-        self.threshold = 0
-
-        # Gravity estimate for high-pass filtering
-        self.gravity = {'x': 0, 'y': 0, 'z': 0}
-        self.alpha = 0.9  # gravity LPF constant
 
     # I2C communication methods
 
@@ -289,145 +259,6 @@ class mpu6050:
         gyro = self.get_gyro_data()
 
         return [accel, gyro, temp]
-
-    # ------------------------
-    # Utility functions
-    # ------------------------
-    def accel_magnitude(self, accel):
-        return math.sqrt(
-            accel['x']**2 +
-            accel['y']**2 +
-            accel['z']**2
-        )
-    
-    # ------------------------
-    # Gravity removal
-    # ------------------------
-    def remove_gravity(self, accel):
-        """
-        High-pass filter to remove gravity per axis.
-        Makes detection orientation-independent.
-        """
-        lin = {}
-
-        for axis in ['x', 'y', 'z']:
-            self.gravity[axis] = (
-                self.alpha * self.gravity[axis] +
-                (1 - self.alpha) * accel[axis]
-            )
-            lin[axis] = accel[axis] - self.gravity[axis]
-
-        return lin
-
-    # ------------------------
-    # Calibration
-    # ------------------------
-    def calibrate(self):
-        print(f"Calibrating IMU at address {hex(self.address)}...")
-        samples = []
-        start = time.time()
-
-        while time.time() - start < self.CALIBRATION_TIME:
-            accel = self.get_accel_data(g=True)
-            accel_lin = self.remove_gravity(accel)
-            mag = self.accel_magnitude(accel_lin)
-            samples.append(mag)
-            time.sleep(1 / self.SAMPLE_RATE)
-
-        mean = sum(samples) / len(samples)
-        std = (
-            sum((x - mean) ** 2 for x in samples) / len(samples)
-        ) ** 0.5
-
-        K = 1.6
-        self.threshold = mean + K * std
-
-        print(
-            f"Calibration done | "
-            f"Threshold={self.threshold:.3f}"
-        )
-
-    # ------------------------
-    # Start / Stop
-    # ------------------------
-    def start(self):
-        self.running = True
-        self.thread = threading.Thread(target=self._run)
-        self.thread.start()
-
-    def stop(self):
-        self.running = False
-        self.thread.join()
-
-    # ------------------------
-    # Core detection loop
-    # ------------------------
-    def _run(self):
-        while self.running:
-            accel = self.get_accel_data(g=True)
-            accel_lin = self.remove_gravity(accel)
-            mag = self.accel_magnitude(accel_lin)
-
-            now = time.time()
-
-            if (
-                mag > self.threshold and
-                (now - self.last_step_time) > self.MIN_STEP_INTERVAL
-            ):
-                self._register_step(now)
-
-            time.sleep(1 / self.SAMPLE_RATE)
-
-    # ------------------------
-    # Step registration logic
-    # ------------------------
-    def _register_step(self, timestamp):
-        self.steps += 1
-
-        if self.step_times:
-            dt = timestamp - self.step_times[-1]
-
-            # Step frequency (Hz)
-            freq = 1.0 / dt if dt > 0 else 0
-
-            # Normalize realistic dog gait range
-            freq_norm = min(max(freq / 3.0, 0.6), 1.3)
-
-            # Step length estimation
-            step_length = (
-                self.dog_length_in *
-                self.stride_factor /
-                freq_norm
-            )
-
-            self.step_lengths.append(step_length)
-
-            print(
-                f"[{hex(self.address)}] "
-                f"Step {self.steps} | "
-                f"Len={step_length:.2f} in"
-            )
-
-        else:
-            print(f"[{hex(self.address)}] Step {self.steps}")
-
-        self.step_times.append(timestamp)
-        self.last_step_time = timestamp
-
-    # ------------------------
-    # Public getters
-    # ------------------------
-    def get_latest_step_length(self):
-        if self.step_lengths:
-            return self.step_lengths[-1]
-        return 0
-
-    def get_average_step_length(self):
-        if self.step_lengths:
-            return sum(self.step_lengths) / len(self.step_lengths)
-        return 0
-
-    
 
 if __name__ == "__main__":
     mpu = mpu6050(0x68)
