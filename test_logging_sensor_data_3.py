@@ -5,7 +5,7 @@ import csv
 import os
 from updated_heartrate_monitor import HeartRateMonitor
 from temperature_sensor.temperature_sensor import MLX90614
-from dual_IMU_step_counter_1 import DualIMUStepAnalyzer
+from motion_sensor.dual_IMU_step_counter_1 import DualIMUStepAnalyzer
 import matplotlib.pyplot as plt
 from collections import deque
 
