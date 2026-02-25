@@ -1,5 +1,5 @@
 import time
-from step_counter_v3 import StepCounter
+from motion_sensor.step_counter_v3 import StepCounter
 
 LIMP_PERCENT_THRESHOLD = 0.15   # 15% asymmetry threshold
 
