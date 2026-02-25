@@ -17,7 +17,7 @@ rawTemp = 0
 hrm.start_sensor()
 
 timestamp = time.strftime("%Y-%m-%d_%H-%M-%S")
-csv_file = f"dog_harness_data__{timestamp}.csv"
+csv_file = f"HRONLYdog_harness_data__{timestamp}.csv"
 
 file_exists = os.path.isfile(csv_file)
 
