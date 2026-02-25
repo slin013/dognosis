@@ -25,6 +25,8 @@ class HeartRateMonitor(object):
         ir_data = []
         red_data = []
         bpms = []
+        self.rawIR = 0
+        self.rawRed = 0
 
         # run until told to stop
         while not self._thread.stopped:
@@ -34,6 +36,7 @@ class HeartRateMonitor(object):
                 # grab all the data and stash it into arrays
                 while num_bytes > 0:
                     red, ir = sensor.read_fifo()
+                    self.rawRed , self.rawIR = red, ir
                     num_bytes -= 1
                     ir_data.append(ir)
                     red_data.append(red)
@@ -61,6 +64,10 @@ class HeartRateMonitor(object):
             time.sleep(self.LOOP_TIME)
 
         sensor.shutdown()
+    def PrintRawRed(self):
+        return self.rawRed
+    def PrintRawIR(self):
+        return self.rawIR
 
     def start_sensor(self):
         self._thread = threading.Thread(target=self.run_sensor)

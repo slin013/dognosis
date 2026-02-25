@@ -20,6 +20,9 @@ class MLX90614():
                 sleep(0.1)
         raise error
 
+    def PrintRawTemp(self):
+        return self.readValue(self.MLX90614_TA)
+
     def valueToF(self, value):
         return -459.67 + (value * 0.036)
 
