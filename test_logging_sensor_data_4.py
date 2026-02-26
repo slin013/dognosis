@@ -22,7 +22,6 @@ rawTemp = 0
 step_counter.calibrate()
 step_counter.start()
 hrm.start_sensor()
-rawIMU.start_sensor()
 
 timestamp = time.strftime("%Y-%m-%d_%H-%M-%S")
 csv_file = f"dog_harness_data__{timestamp}.csv"
