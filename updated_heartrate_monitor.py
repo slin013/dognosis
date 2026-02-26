@@ -27,6 +27,8 @@ def detect_arrhythmia(rr_intervals):
 
 
 class HeartRateMonitor:
+    starting_BPM = 0
+
     def __init__(self, print_raw=False, print_result=True):
         self.print_raw = print_raw
         self.print_result = print_result
@@ -41,7 +43,7 @@ class HeartRateMonitor:
         self.fs = 100  # Hz
         self.buffer_size = self.fs * 10  # 10 seconds
 
-        self.bpm = 0
+        self.bpm = self.starting_BPM
         self.arrhythmia_flag = False
 
     def start_sensor(self):
