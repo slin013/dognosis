@@ -5,6 +5,7 @@ import sqlite3
 from updated_heartrate_monitor import HeartRateMonitor
 from temperature_sensor.temperature_sensor import MLX90614
 from dual_IMU_step_counter_2 import DualIMUStepAnalyzer
+from datetime import datetime
 
 DB_NAME = "dog_harness.db"
 
@@ -49,6 +50,7 @@ try:
     while True:
 
         timestamp = time.time()
+        dt = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         bpm = hrm.bpm
         arrhythmia = int(hrm.arrhythmia_flag)
@@ -71,15 +73,16 @@ try:
         # Insert sensor data
         # -------------------------
         cursor.execute("""
-            INSERT INTO sensor_data (
-                timestamp, bpm, arrhythmia, temperature,
-                step_count, latest_step_length, avg_step_length,
-                asymmetry, limp, raw_ir, raw_red, raw_temperature
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO sensor_data (
+            timestamp, datetime, bpm, arrhythmia, temperature,
+            step_count, latest_step_length, avg_step_length,
+            asymmetry, limp, raw_ir, raw_red, raw_temperature
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
-            timestamp, bpm, arrhythmia, temp,
+            timestamp, dt, bpm, arrhythmia, temp,
             steps, latest_len, avg_len,
-            asymmetry, limp,rawIR, rawRed, rawTemp
+            asymmetry, limp,
+            rawIR, rawRed, rawTemp
         ))
 
         # -------------------------
@@ -88,9 +91,9 @@ try:
 
         def insert_flag(flag_type, description):
             cursor.execute("""
-                INSERT INTO flags (timestamp, flag_type, description, is_user_generated)
-                VALUES (?, ?, ?, 0)
-            """, (timestamp, flag_type, description))
+                INSERT INTO flags (timestamp, datetime, flag_type, description, is_user_generated)
+                VALUES (?, ?, ?, ?, 0)
+            """, (timestamp, dt, flag_type, description))
 
         # Arrhythmia
         if arrhythmia and timestamp - last_flag_times["Arrhythmia"] > ARRHYTHMIA_COOLDOWN:
