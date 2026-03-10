@@ -61,8 +61,8 @@ try:
         asymmetry = step_counter.get_step_asymmetry()
         limp = int(step_counter.detect_limp())
 
-        rawIR = hrm.PrintRawIR()
-        rawRed = hrm.PrintRawRed()
+        # rawIR = hrm.PrintRawIR()
+        # rawRed = hrm.PrintRawRed()
         rawTemp = temp_sensor.PrintRawTemp()
 
         # -------------------------
@@ -77,7 +77,7 @@ try:
         """, (
             timestamp, bpm, arrhythmia, temp,
             steps, latest_len, avg_len,
-            asymmetry, limp, rawIR, rawRed, rawTemp
+            asymmetry, limp, rawTemp
         ))
 
         # -------------------------
