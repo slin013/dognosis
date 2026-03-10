@@ -62,7 +62,9 @@ try:
         limp = int(step_counter.detect_limp())
 
         # rawIR = hrm.PrintRawIR()
+        rawIR = None
         # rawRed = hrm.PrintRawRed()
+        rawRed = None
         rawTemp = temp_sensor.PrintRawTemp()
 
         # -------------------------
@@ -77,7 +79,7 @@ try:
         """, (
             timestamp, bpm, arrhythmia, temp,
             steps, latest_len, avg_len,
-            asymmetry, limp, rawTemp
+            asymmetry, limp,rawIR, rawRed, rawTemp
         ))
 
         # -------------------------
