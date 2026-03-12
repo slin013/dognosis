@@ -3,7 +3,7 @@
 import time
 import csv
 import os
-from updated_heartrate_monitor import HeartRateMonitor
+from updated_heartrate_monitor_v2 import HeartRateMonitor
 import matplotlib.pyplot as plt
 from collections import deque
 
