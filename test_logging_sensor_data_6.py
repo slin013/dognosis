@@ -139,7 +139,7 @@ try:
 
         conn.commit()
 
-        print(f"BPM={bpm} | Temp={temp} | Steps={steps} | Limp={limp}")
+        print(f"BPM={bpm} | Temp={temp} |Arrythmia={arrhythmia} | | Steps={steps} | Limp={limp}")
 
         time.sleep(1)
 
