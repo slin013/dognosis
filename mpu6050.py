@@ -72,7 +72,7 @@ class mpu6050:
     # Constants (Step Counter)
     # ------------------------
     SAMPLE_RATE = 50
-    MIN_STEP_INTERVAL = 0.35
+    MIN_STEP_INTERVAL = 0.5
     CALIBRATION_TIME = 3
 
     # --- Dog scaling parameters ---
