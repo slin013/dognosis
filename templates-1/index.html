@@ -1,17 +1,117 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
     <title>Dognosis Dashboard</title>
+
+    <!-- Responsive viewport -->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- Bootstrap CSS (layout & basic styling) -->
+    <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+        rel="stylesheet"
+        integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+        crossorigin="anonymous"
+    >
+
+    <!-- Chart.js for time‑series plots -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
+<body class="bg-light">
 
-<body>
+<div class="container py-4">
+    <!-- Top bar -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4">
+        <div>
+            <h1 class="h3 mb-1">Dognosis</h1>
+            <p class="text-muted mb-0">Live physiological and activity monitoring</p>
+        </div>
+        <div class="mt-3 mt-md-0 text-md-end">
+            <div class="mb-1">
+                <span id="connectionStatus" class="badge bg-secondary">Connecting…</span>
+            </div>
+            <small class="text-muted" id="lastUpdatedText">Awaiting first update</small>
+        </div>
+    </div>
 
-<h2>Dognosis Live Monitor</h2>
+    <div class="row g-4">
+        <!-- Left: at‑a‑glance vitals -->
+        <div class="col-lg-3">
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h5 class="card-title">Heart Rate</h5>
+                    <p class="display-6 mb-1" id="hrCardValue">-- bpm</p>
+                    <span class="badge bg-secondary" id="hrCardStatus">Waiting for data</span>
+                </div>
+            </div>
 
-<canvas id="hrChart"></canvas>
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h5 class="card-title">Activity</h5>
+                    <p class="h4 mb-1" id="activityCardValue">--</p>
+                    <small class="text-muted" id="activityCardStatus">Activity integration coming next</small>
+                </div>
+            </div>
 
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h5 class="card-title">Temperature</h5>
+                    <p class="h4 mb-1" id="tempCardValue">-- °C</p>
+                    <small class="text-muted" id="tempCardStatus">Temperature integration coming next</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Center: charts -->
+        <div class="col-lg-6">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="card-title mb-0">Heart Rate Over Time</h5>
+                        <div class="btn-group btn-group-sm" role="group" aria-label="Time window">
+                            <button type="button" class="btn btn-outline-secondary active" data-window="1800">
+                                30 min
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" data-window="7200">
+                                2 h
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" data-window="86400">
+                                24 h
+                            </button>
+                        </div>
+                    </div>
+                    <div style="height: 320px;">
+                        <canvas id="hrChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: recent flags -->
+        <div class="col-lg-3">
+            <div class="card h-100">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="card-title mb-0">Recent Flags</h5>
+                    </div>
+                    <ul class="list-group list-group-flush flex-grow-1 overflow-auto" style="max-height: 340px;" id="flagsList">
+                        <li class="list-group-item text-muted">Loading flags…</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bootstrap JS bundle (optional, for components) -->
+<script
+    src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+    integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
+    crossorigin="anonymous"
+></script>
+
+<!-- App scripts -->
 <script src="/static-1/charts.js"></script>
 
 </body>
