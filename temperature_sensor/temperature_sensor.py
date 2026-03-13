@@ -1,5 +1,6 @@
 import smbus
 import time
+from time import sleep
 
 class MLX90614():
 

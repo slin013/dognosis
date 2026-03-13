@@ -2,7 +2,7 @@
 
 import time
 import sqlite3
-from updated_heartrate_monitor import HeartRateMonitor
+from updated_heartrate_monitor_v2 import HeartRateMonitor
 from temperature_sensor.temperature_sensor import MLX90614
 from dual_IMU_step_counter_2 import DualIMUStepAnalyzer
 from datetime import datetime
@@ -139,7 +139,7 @@ try:
 
         conn.commit()
 
-        print(f"BPM={bpm} | Temp={temp} | Steps={steps} | Limp={limp}")
+        print(f"BPM={bpm} | Temp={temp} |Arrythmia={arrhythmia} | | Steps={steps} | Limp={limp}")
 
         time.sleep(1)
 
