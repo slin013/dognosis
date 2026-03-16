@@ -67,7 +67,11 @@ function updateHeartRateCard(latestSample) {
     const statusEl = document.getElementById("hrCardStatus");
     if (!latestSample || !valueEl || !statusEl) return;
 
-    const bpm = latestSample.heart_rate ?? latestSample.hr ?? latestSample[1];
+    const bpm =
+        latestSample.bpm ??
+        latestSample.heart_rate ??
+        latestSample.hr ??
+        latestSample[1];
     if (bpm == null) {
         valueEl.textContent = "-- bpm";
         statusEl.textContent = "No data";
@@ -124,9 +128,12 @@ async function updateChart() {
             return new Date(ts * 1000).toLocaleTimeString();
         });
 
-        const heartRates = filtered.map(sample => {
-            return sample.heart_rate ?? sample.hr ?? sample[1];
-        });
+        const heartRates = filtered.map(sample => (
+            sample.bpm ??
+            sample.heart_rate ??
+            sample.hr ??
+            sample[1]
+        ));
 
         hrChart.data.labels = timestamps.reverse();
         hrChart.data.datasets[0].data = heartRates.reverse();
