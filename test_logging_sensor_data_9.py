@@ -67,19 +67,19 @@ class SensorManager(threading.Thread):
             try:
                 bpm = self.hrm.bpm
 
-                # NEW FLAGS FROM HRM
-                high_hr = int(self.hrm.bpm > 180)
-                low_hr = int(self.hrm.bpm < 50 and self.hrm.bpm > 0)
+            #     # NEW FLAGS FROM HRM
+            #     high_hr = int(self.hrm.bpm > 180)
+            #     low_hr = int(self.hrm.bpm < 50 and self.hrm.bpm > 0)
 
-                if len(self.hrm.bpm_history) >= 2:
-                    rapid_change = int(abs(self.hrm.bpm_history[-1] - self.hrm.bpm_history[-2]) > 30)
-                else:
-                    rapid_change = 0
+            #     if len(self.hrm.bpm_history) >= 2:
+            #         rapid_change = int(abs(self.hrm.bpm_history[-1] - self.hrm.bpm_history[-2]) > 30)
+            #     else:
+            #         rapid_change = 0
 
-                if len(self.hrm.bpm_history) >= 5:
-                    unstable_hr = int(max(self.hrm.bpm_history) - min(self.hrm.bpm_history) > 30)
-                else:
-                    unstable_hr = 0
+            #     if len(self.hrm.bpm_history) >= 5:
+            #         unstable_hr = int(max(self.hrm.bpm_history) - min(self.hrm.bpm_history) > 30)
+            #     else:
+            #         unstable_hr = 0
 
             except Exception as e:
                 print(f"HRM error: {e}")
