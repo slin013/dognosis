@@ -1,3 +1,31 @@
+// Parse server-provided JSON for initial chart state
+let rows = [];
+let latest = null;
+
+const sensorScript = document.getElementById("sensor-data");
+if (sensorScript && sensorScript.textContent) {
+    try {
+        rows = JSON.parse(sensorScript.textContent) || [];
+    } catch (e) {
+        console.error("Failed to parse sensor-data JSON", e);
+    }
+}
+
+const latestScript = document.getElementById("latest-data");
+if (latestScript && latestScript.textContent) {
+    try {
+        latest = JSON.parse(latestScript.textContent) || null;
+    } catch (e) {
+        console.error("Failed to parse latest-data JSON", e);
+    }
+}
+
+// Simple dashboard state for flags tab
+const dashboardState = {
+    flags: [],
+    selectedFlag: null
+};
+
 let ctx = document.getElementById("hrChart").getContext("2d");
 
 let hrChart = new Chart(ctx, {
@@ -150,11 +178,10 @@ function updateHeartRateCard(latestSample) {
 //     }
 // }
 
-// NEW version with updates - commented out old working version above
 async function updateChart() {
     try {
         // Use server-provided JSON instead of fetching
-        const data = rows;  // rows from JSON <script> tag
+        const data = rows;
 
         if (!Array.isArray(data) || data.length === 0) {
             hrChart.data.labels = [];
@@ -270,6 +297,202 @@ async function updateFlags() {
     }
 }
 
+// ---- Flags & Insights tab helpers ----
+
+function mapFlagTypeToLabel(flagType) {
+    if (!flagType) return "Flag";
+    switch (flagType) {
+        case "hr_high":
+            return "High heart rate";
+        case "hr_low":
+            return "Low heart rate";
+        case "hr_rapid_change":
+            return "Rapid HR change";
+        case "hr_unstable":
+            return "Unstable heart rate";
+        case "temp_high":
+            return "Overheating";
+        case "temp_low":
+            return "Underheating";
+        case "limp":
+            return "Limp / gait issue";
+        default:
+            return flagType.replace(/_/g, " ");
+    }
+}
+
+function buildInsightsForFlag(flag) {
+    const insights = [];
+
+    const bpm = flag.bpm;
+    const temp = flag.temperature;
+    const limp = flag.limp;
+    const asym = flag.asymmetry;
+
+    if (flag.flag_type === "temp_high" || (temp != null && temp > 39.2)) {
+        insights.push("Temperature is elevated; overheating is possible. Consider rest, shade, and water.");
+    }
+    if (flag.flag_type === "temp_low" || (temp != null && temp < 36.5)) {
+        insights.push("Temperature is low; underheating or exposure to cold may be an issue.");
+    }
+    if (flag.flag_type === "hr_high" || (bpm != null && bpm > 160)) {
+        insights.push("Heart rate is high relative to baseline; may indicate stress, pain, or heavy exertion.");
+    }
+    if (flag.flag_type === "hr_low" || (bpm != null && bpm < 50)) {
+        insights.push("Heart rate is low; if dog is not resting calmly, this may warrant attention.");
+    }
+    if (flag.flag_type === "hr_rapid_change") {
+        insights.push("Heart rate changed rapidly; check for sudden activity, anxiety, or pain triggers.");
+    }
+    if (flag.flag_type === "hr_unstable") {
+        insights.push("Heart rate pattern is unstable; irregular rhythm may need veterinary review.");
+    }
+    if (flag.flag_type === "limp" || limp === 1 || (asym != null && asym > 0.2)) {
+        insights.push("Gait asymmetry or limp detected; inspect paws, joints, and recent activity.");
+    }
+
+    if (insights.length === 0) {
+        insights.push("No specific rule-based insight available; review context and trends around this time.");
+    }
+
+    return insights;
+}
+
+function renderFlagsTable() {
+    const tbody = document.getElementById("flagsTableBody");
+    if (!tbody) return;
+
+    const flags = dashboardState.flags;
+    if (!Array.isArray(flags) || flags.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="3" class="text-muted">No incidents recorded yet</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = "";
+
+    flags.forEach(flag => {
+        const tr = document.createElement("tr");
+        tr.style.cursor = "pointer";
+
+        const tsCell = document.createElement("td");
+        if (flag.timestamp) {
+            const date = new Date(flag.timestamp * 1000);
+            tsCell.textContent = date.toLocaleString();
+        } else {
+            tsCell.textContent = "Unknown time";
+        }
+
+        const typeCell = document.createElement("td");
+        typeCell.textContent = mapFlagTypeToLabel(flag.flag_type);
+
+        const detailCell = document.createElement("td");
+        const parts = [];
+        if (flag.bpm != null) parts.push(`${Math.round(flag.bpm)} bpm`);
+        if (flag.temperature != null) parts.push(`${flag.temperature.toFixed(1)} °C`);
+        if (flag.limp === 1) parts.push("limp");
+        if (flag.asymmetry != null) parts.push(`asym ${flag.asymmetry.toFixed(2)}`);
+        detailCell.textContent = parts.join(" • ") || (flag.description || "");
+
+        tr.appendChild(tsCell);
+        tr.appendChild(typeCell);
+        tr.appendChild(detailCell);
+
+        tr.addEventListener("click", () => {
+            selectFlag(flag);
+        });
+
+        tbody.appendChild(tr);
+    });
+}
+
+function selectFlag(flag) {
+    dashboardState.selectedFlag = flag;
+    renderFlagDetail();
+}
+
+function renderFlagDetail() {
+    const emptyEl = document.getElementById("flagDetailEmpty");
+    const contentEl = document.getElementById("flagDetailContent");
+    if (!emptyEl || !contentEl) return;
+
+    const flag = dashboardState.selectedFlag;
+    if (!flag) {
+        emptyEl.classList.remove("d-none");
+        contentEl.classList.add("d-none");
+        return;
+    }
+
+    emptyEl.classList.add("d-none");
+    contentEl.classList.remove("d-none");
+
+    const timeEl = document.getElementById("flagDetailTime");
+    const typeEl = document.getElementById("flagDetailType");
+    const metricsEl = document.getElementById("flagDetailMetrics");
+    const descEl = document.getElementById("flagDetailDescription");
+    const insightsEl = document.getElementById("flagDetailInsights");
+
+    if (timeEl) {
+        if (flag.timestamp) {
+            const d = new Date(flag.timestamp * 1000);
+            timeEl.textContent = d.toLocaleString();
+        } else {
+            timeEl.textContent = "Unknown time";
+        }
+    }
+
+    if (typeEl) {
+        typeEl.textContent = mapFlagTypeToLabel(flag.flag_type);
+    }
+
+    if (metricsEl) {
+        const parts = [];
+        if (flag.bpm != null) parts.push(`${Math.round(flag.bpm)} bpm`);
+        if (flag.temperature != null) parts.push(`${flag.temperature.toFixed(1)} °C`);
+        if (flag.step_count != null) parts.push(`${flag.step_count} steps`);
+        if (flag.limp === 1) parts.push("limp");
+        if (flag.asymmetry != null) parts.push(`asymmetry ${flag.asymmetry.toFixed(2)}`);
+        metricsEl.textContent = parts.join(" • ") || "No sensor context available";
+    }
+
+    if (descEl) {
+        descEl.textContent = flag.description || "No additional description.";
+    }
+
+    if (insightsEl) {
+        insightsEl.innerHTML = "";
+        const insights = buildInsightsForFlag(flag);
+        insights.forEach(text => {
+            const li = document.createElement("li");
+            li.textContent = text;
+            insightsEl.appendChild(li);
+        });
+    }
+}
+
+async function loadFlagsSummary() {
+    try {
+        const res = await fetch("/flags-summary");
+        if (!res.ok) {
+            throw new Error(`HTTP ${res.status}`);
+        }
+        const data = await res.json();
+        if (!Array.isArray(data)) {
+            throw new Error("Unexpected flags-summary payload");
+        }
+        dashboardState.flags = data;
+        renderFlagsTable();
+        if (!dashboardState.selectedFlag && data.length > 0) {
+            selectFlag(data[0]);
+        }
+    } catch (err) {
+        console.error("Error loading flags summary", err);
+        const tbody = document.getElementById("flagsTableBody");
+        if (tbody) {
+            tbody.innerHTML = '<tr><td colspan="3" class="text-danger">Failed to load incidents</td></tr>';
+        }
+    }
+}
+
 function initTimeWindowButtons() {
     const buttons = document.querySelectorAll('[data-window]');
     buttons.forEach(btn => {
@@ -289,6 +512,8 @@ function initTimeWindowButtons() {
 initTimeWindowButtons();
 updateChart();
 updateFlags();
+loadFlagsSummary();
 
 setInterval(updateChart, 3000);
 setInterval(updateFlags, 10000);
+setInterval(loadFlagsSummary, 60000);
