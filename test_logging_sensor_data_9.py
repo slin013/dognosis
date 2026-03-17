@@ -111,17 +111,18 @@ class SensorManager(threading.Thread):
             with data_lock:
                 sensor_data.update({
                     "bpm": bpm,
-                    "high_hr": high_hr,
-                    "low_hr": low_hr,
-                    "rapid_change": rapid_change,
-                    "unstable_hr": unstable_hr,
+                    "arrhythmia": None,  # deprecated
                     "temperature": temp,
                     "steps": steps,
                     "latest_step_length": latest_len,
                     "avg_step_length": avg_len,
                     "asymmetry": asymmetry,
                     "limp": limp,
-                    "raw_temperature": rawTemp
+                    "raw_temperature": rawTemp,
+                    "high_hr": int(hrm.high_hr_flag),
+                    "low_hr": int(hrm.low_hr_flag),
+                    "rapid_change": int(hrm.rapid_change_flag),
+                    "unstable_hr": int(hrm.unstable_hr_flag)
                 })
 
             time.sleep(self.update_interval)
@@ -172,22 +173,31 @@ try:
         # -------------------------
         # Insert sensor data
         # -------------------------
+        # -------------------------
         cursor.execute("""
             INSERT INTO sensor_data (
-                timestamp, datetime, bpm,
+                timestamp, datetime, bpm, temperature,
+                step_count, latest_step_length, avg_step_length,
+                asymmetry, limp, raw_temperature,
                 high_hr, low_hr, rapid_change, unstable_hr,
-                temperature, step_count,
-                latest_step_length, avg_step_length,
-                asymmetry, limp,
-                raw_temperature
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                arrhythmia
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
-            timestamp, dt, bpm,
-            high_hr, low_hr, rapid_change, unstable_hr,
-            temp, steps,
-            latest_len, avg_len,
-            asymmetry, limp,
-            rawTemp
+            timestamp,
+            dt,
+            bpm,
+            temp,
+            steps,
+            latest_len,
+            avg_len,
+            asymmetry,
+            limp,
+            rawTemp,
+            int(hrm.high_hr_flag),      # 1 if high HR, else 0
+            int(hrm.low_hr_flag),       # 1 if low HR, else 0
+            int(hrm.rapid_change_flag), # 1 if rapid BPM change, else 0
+            int(hrm.unstable_hr_flag),  # 1 if unstable HR, else 0
+            None                        # arrhythmia intentionally left blank
         ))
 
         # -------------------------

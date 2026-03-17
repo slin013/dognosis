@@ -41,6 +41,13 @@ class HeartRateMonitor:
 
         self.bpm = self.starting_BPM
         self.arrhythmia_flag = False
+         # -------------------------
+        # NEW: Heart Rate Flags
+        # -------------------------
+        self.high_hr_flag = False
+        self.low_hr_flag = False
+        self.rapid_change_flag = False
+        self.unstable_hr_flag = False
 
         # NEW: BPM history
         self.bpm_history = []
@@ -119,29 +126,24 @@ class HeartRateMonitor:
         self.bpm_history.append(self.bpm)
         self.bpm_history = self.bpm_history[-10:]
 
-        # -------------------------
-        # NEW: Heart Rate Flags
-        # -------------------------
-        high_hr_flag = False
-        low_hr_flag = False
-        rapid_change_flag = False
-        unstable_hr_flag = False
+       
 
         # High / Low BPM
-        if self.bpm > 180:
-            high_hr_flag = True
-        elif self.bpm < 50 and self.bpm > 0:
-            low_hr_flag = True
+        self.high_hr_flag = self.bpm > 180
+        self.low_hr_flag = self.bpm < 50 and self.bpm > 0
 
         # Rapid change detection
         if len(self.bpm_history) >= 2:
-            if abs(self.bpm_history[-1] - self.bpm_history[-2]) > 30:
-                rapid_change_flag = True
+            self.rapid_change_flag = abs(self.bpm_history[-1] - self.bpm_history[-2]) > 30
+        else:
+            self.rapid_change_flag = False
 
         # Unstable heart rate
         if len(self.bpm_history) >= 5:
-            if max(self.bpm_history) - min(self.bpm_history) > 30:
-                unstable_hr_flag = True
+            self.unstable_hr_flag = max(self.bpm_history) - min(self.bpm_history) > 30
+        else:
+            self.unstable_hr_flag = False
+
 
         # Disable flags if no valid BPM
         if self.bpm == 0:
