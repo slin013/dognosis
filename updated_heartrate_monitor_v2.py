@@ -64,7 +64,7 @@ class HeartRateMonitor:
             red, ir = self.sensor.read_fifo()
 
             # Basic signal quality check
-            if ir < 5000 or np.std(self.ir_buffer[-50:]) < 50:
+            if ir < 5000:
                 # No finger/contact detected → reset values
                 self.ir_buffer.clear()
                 self.rr_intervals.clear()
