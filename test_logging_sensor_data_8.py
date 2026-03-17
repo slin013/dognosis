@@ -161,13 +161,13 @@ try:
             INSERT INTO sensor_data (
                 timestamp, datetime, bpm, arrhythmia, temperature,
                 step_count, latest_step_length, avg_step_length,
-                asymmetry, limp, raw_ir, raw_red, raw_temperature
+                asymmetry, limp, raw_temperature
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             timestamp, dt, bpm, arrhythmia, temp,
             steps, latest_len, avg_len,
             asymmetry, limp,
-            rawIR, rawRed, rawTemp
+            rawTemp
         ))
 
         # -------------------------
