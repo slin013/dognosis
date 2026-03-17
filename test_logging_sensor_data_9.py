@@ -246,7 +246,7 @@ try:
 
         conn.commit()
 
-        print(f"BPM={bpm} | Temp={temp} | Steps={steps} | Limp={limp}")
+        print(f"BPM={bpm} | Temp={temp} | Steps={steps} | Limp={limp} | High HR = {high_hr}| Low HR = {low_hr} | Unstable HR = {unstable_hr} | Rapid Change in BPM = {rapid_change}")
 
         time.sleep(1)
 
