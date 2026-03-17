@@ -97,13 +97,64 @@ function updateHeartRateCard(latestSample) {
     statusEl.className = badgeClass;
 }
 
+// async function updateChart() {
+//     try {
+//         const response = await fetch("/live-data");
+//         if (!response.ok) {
+//             throw new Error(`HTTP ${response.status}`);
+//         }
+//         const data = await response.json();
+
+//         if (!Array.isArray(data) || data.length === 0) {
+//             hrChart.data.labels = [];
+//             hrChart.data.datasets[0].data = [];
+//             hrChart.update();
+//             setConnectionStatus(true);
+//             setLastUpdated();
+//             updateHeartRateCard(null);
+//             return;
+//         }
+
+//         // Assume each row has a Unix timestamp in seconds; support both object and array shapes.
+//         const nowSec = Math.floor(Date.now() / 1000);
+//         const filtered = data.filter(sample => {
+//             const ts = sample.timestamp ?? sample[0];
+//             if (!ts) return false;
+//             return ts >= nowSec - currentTimeWindowSeconds;
+//         });
+
+//         const timestamps = filtered.map(sample => {
+//             const ts = sample.timestamp ?? sample[0];
+//             return new Date(ts * 1000).toLocaleTimeString();
+//         });
+
+//         const heartRates = filtered.map(sample => (
+//             sample.bpm ??
+//             sample.heart_rate ??
+//             sample.hr ??
+//             sample[1]
+//         ));
+
+//         hrChart.data.labels = timestamps.reverse();
+//         hrChart.data.datasets[0].data = heartRates.reverse();
+//         hrChart.update();
+
+//         const latestSample = filtered[filtered.length - 1] || data[data.length - 1];
+//         updateHeartRateCard(latestSample);
+
+//         setConnectionStatus(true);
+//         setLastUpdated();
+//     } catch (err) {
+//         console.error("Error updating chart", err);
+//         setConnectionStatus(false);
+//     }
+// }
+
+// NEW version with updates - commented out old working version above
 async function updateChart() {
     try {
-        const response = await fetch("/live-data");
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-        const data = await response.json();
+        // Use server-provided JSON instead of fetching
+        const data = rows;  // rows from JSON <script> tag
 
         if (!Array.isArray(data) || data.length === 0) {
             hrChart.data.labels = [];
@@ -115,7 +166,7 @@ async function updateChart() {
             return;
         }
 
-        // Assume each row has a Unix timestamp in seconds; support both object and array shapes.
+        // Filter for current time window as before
         const nowSec = Math.floor(Date.now() / 1000);
         const filtered = data.filter(sample => {
             const ts = sample.timestamp ?? sample[0];
@@ -123,23 +174,15 @@ async function updateChart() {
             return ts >= nowSec - currentTimeWindowSeconds;
         });
 
-        const timestamps = filtered.map(sample => {
-            const ts = sample.timestamp ?? sample[0];
-            return new Date(ts * 1000).toLocaleTimeString();
-        });
-
-        const heartRates = filtered.map(sample => (
-            sample.bpm ??
-            sample.heart_rate ??
-            sample.hr ??
-            sample[1]
-        ));
+        const timestamps = filtered.map(sample => new Date(sample[0] * 1000).toLocaleTimeString());
+        const heartRates = filtered.map(sample => sample[1]);
 
         hrChart.data.labels = timestamps.reverse();
         hrChart.data.datasets[0].data = heartRates.reverse();
         hrChart.update();
 
-        const latestSample = filtered[filtered.length - 1] || data[data.length - 1];
+        // Update card with the latest sample from JSON
+        const latestSample = latest ?? filtered[filtered.length - 1];
         updateHeartRateCard(latestSample);
 
         setConnectionStatus(true);

@@ -111,6 +111,22 @@
     crossorigin="anonymous"
 ></script>
 
+<!-- Bootstrap JS bundle -->
+<script
+    src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+    integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
+    crossorigin="anonymous"
+></script>
+
+<!-- ✅ ADD THESE TWO BLOCKS HERE -->
+<script id="sensor-data" type="application/json">
+    {{ rows | tojson }}
+</script>
+
+<script id="latest-data" type="application/json">
+    {{ latest | tojson }}
+</script>
+
 <!-- App scripts -->
 <script src="/static-1/charts.js"></script>
 
