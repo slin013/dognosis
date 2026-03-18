@@ -7,7 +7,7 @@ from temperature_sensor.temperature_sensor import MLX90614
 from dual_IMU_step_counter_2 import DualIMUStepAnalyzer
 from datetime import datetime
 
-DB_NAME = "dog_harness.db"
+from dognosis_db import DB_PATH as DB_NAME
 
 # --------------------------------
 # Flag Thresholds (EDIT AS NEEDED)

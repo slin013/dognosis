@@ -5,7 +5,7 @@ import sqlite3
 import threading
 from datetime import datetime
 
-from dognosis_db import DB_PATH as DB_NAME
+from dognosis_db import DB_PATH as DB_NAME, ensure_schema
 from updated_heartrate_monitor_v3 import HeartRateMonitor
 from dual_IMU_step_counter_2 import DualIMUStepAnalyzer
 
@@ -146,6 +146,7 @@ sensor_manager.start()
 # -------------------------
 conn = sqlite3.connect(DB_NAME, check_same_thread=False)
 cursor = conn.cursor()
+ensure_schema(conn)
 
 print("Logging data to SQLite...")
 

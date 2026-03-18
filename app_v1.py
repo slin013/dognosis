@@ -1,13 +1,44 @@
 # First outline version of UI - using flask
 
-from flask import Flask, jsonify, render_template, request
+import os
 import sqlite3
 
-app = Flask(__name__)
-DB = "dog_harness.db"
+from flask import Flask, jsonify, render_template, request
+
+from dognosis_db import DB_PATH, ensure_schema
+
+_BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+_TEMPLATE_DIR = os.path.join(_BASE_DIR, "templates-1")
+_STATIC_DIR = os.path.join(_BASE_DIR, "static-1")
+
+_TEMPLATE_DIR_1 = _TEMPLATE_DIR
+_STATIC_DIR_1 = _STATIC_DIR
+_TEMPLATE_DIR_FALLBACK = os.path.join(_BASE_DIR, "templates")
+_STATIC_DIR_FALLBACK = os.path.join(_BASE_DIR, "static")
+
+_USE_TEMPLATE_1 = os.path.exists(os.path.join(_TEMPLATE_DIR_1, "index.html"))
+_USE_STATIC_1 = os.path.isdir(_STATIC_DIR_1)
+
+if _USE_TEMPLATE_1 and _USE_STATIC_1:
+    app = Flask(
+        __name__,
+        template_folder=_TEMPLATE_DIR_1,
+        static_folder=_STATIC_DIR_1,
+        static_url_path="/static-1",
+    )
+else:
+    app = Flask(
+        __name__,
+        template_folder=_TEMPLATE_DIR_FALLBACK,
+        static_folder=_STATIC_DIR_FALLBACK,
+        static_url_path="/static",
+    )
+
 
 def get_db():
-    return sqlite3.connect(DB)
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+    ensure_schema(conn)
+    return conn
 
 @app.route("/")
 def home():

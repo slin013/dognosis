@@ -2,17 +2,40 @@
 
 import os
 
-from flask import Flask, render_template, jsonify
+from flask import Flask, jsonify, render_template
 import sqlite3
 
 from dognosis_db import DB_PATH, ensure_schema
 
-app = Flask(
-    __name__,
-    template_folder="templates-1",
-    static_folder="static-1",
-    static_url_path="/static-1",
-)
+_BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+_TEMPLATE_DIR = os.path.join(_BASE_DIR, "templates-1")
+_STATIC_DIR = os.path.join(_BASE_DIR, "static-1")
+
+# Use absolute paths so this works even if the working directory differs
+# across Pi devices. Also fall back to default `templates/` + `static/`
+# if `templates-1/` or `static-1/` are missing on another device.
+_TEMPLATE_DIR_1 = _TEMPLATE_DIR
+_STATIC_DIR_1 = _STATIC_DIR
+_TEMPLATE_DIR_FALLBACK = os.path.join(_BASE_DIR, "templates")
+_STATIC_DIR_FALLBACK = os.path.join(_BASE_DIR, "static")
+
+_USE_TEMPLATE_1 = os.path.exists(os.path.join(_TEMPLATE_DIR_1, "index.html"))
+_USE_STATIC_1 = os.path.isdir(_STATIC_DIR_1)
+
+if _USE_TEMPLATE_1 and _USE_STATIC_1:
+    app = Flask(
+        __name__,
+        template_folder=_TEMPLATE_DIR_1,
+        static_folder=_STATIC_DIR_1,
+        static_url_path="/static-1",
+    )
+else:
+    app = Flask(
+        __name__,
+        template_folder=_TEMPLATE_DIR_FALLBACK,
+        static_folder=_STATIC_DIR_FALLBACK,
+        static_url_path="/static",
+    )
 
 
 def get_db():

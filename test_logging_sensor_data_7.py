@@ -11,7 +11,7 @@ import threading
 # -------------------------
 # Config / Thresholds
 # -------------------------
-DB_NAME = "dog_harness.db"
+from dognosis_db import DB_PATH as DB_NAME
 
 HIGH_TEMP_THRESHOLD = 103.5
 LOW_TEMP_THRESHOLD = 99.0
