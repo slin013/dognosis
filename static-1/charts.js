@@ -125,6 +125,34 @@ function updateHeartRateCard(latestSample) {
     statusEl.className = badgeClass;
 }
 
+function updateActivityTempCards(sample) {
+    const actEl = document.getElementById("activityCardValue");
+    const actStatus = document.getElementById("activityCardStatus");
+    const tempEl = document.getElementById("tempCardValue");
+    const tempStatus = document.getElementById("tempCardStatus");
+    if (!sample) {
+        if (actEl) actEl.textContent = "--";
+        if (tempEl) tempEl.textContent = "--";
+        return;
+    }
+    const steps = sample.step_count ?? sample[4];
+    if (actEl) actEl.textContent = steps != null ? String(steps) : "--";
+    if (actStatus) actStatus.textContent = "Total steps";
+
+    const t = sample.temperature ?? sample[2];
+    if (tempEl) {
+        if (t != null && !Number.isNaN(Number(t))) {
+            const n = Number(t);
+            tempEl.textContent = `${n.toFixed(1)}°`;
+            if (tempStatus) {
+                tempStatus.textContent = n > 45 ? "°F (approx.)" : "°C (approx.)";
+            }
+        } else {
+            tempEl.textContent = "--";
+        }
+    }
+}
+
 // async function updateChart() {
 //     try {
 //         const response = await fetch("/live-data");
@@ -180,8 +208,11 @@ function updateHeartRateCard(latestSample) {
 
 async function updateChart() {
     try {
-        // Use server-provided JSON instead of fetching
-        const data = rows;
+        const response = await fetch("/live-data");
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        const data = await response.json();
 
         if (!Array.isArray(data) || data.length === 0) {
             hrChart.data.labels = [];
@@ -190,27 +221,36 @@ async function updateChart() {
             setConnectionStatus(true);
             setLastUpdated();
             updateHeartRateCard(null);
+            updateActivityTempCards(null);
             return;
         }
 
-        // Filter for current time window as before
         const nowSec = Math.floor(Date.now() / 1000);
-        const filtered = data.filter(sample => {
+        const filtered = data.filter((sample) => {
             const ts = sample.timestamp ?? sample[0];
-            if (!ts) return false;
+            if (ts == null) return false;
             return ts >= nowSec - currentTimeWindowSeconds;
         });
 
-        const timestamps = filtered.map(sample => new Date(sample[0] * 1000).toLocaleTimeString());
-        const heartRates = filtered.map(sample => sample[1]);
+        const use = filtered.length ? filtered : data;
+        const chronological = [...use].reverse();
 
-        hrChart.data.labels = timestamps.reverse();
-        hrChart.data.datasets[0].data = heartRates.reverse();
+        const timestamps = chronological.map((sample) => {
+            const ts = sample.timestamp ?? sample[0];
+            return new Date(ts * 1000).toLocaleTimeString();
+        });
+        const heartRates = chronological.map(
+            (sample) =>
+                sample.bpm ?? sample.heart_rate ?? sample.hr ?? sample[1]
+        );
+
+        hrChart.data.labels = timestamps;
+        hrChart.data.datasets[0].data = heartRates;
         hrChart.update();
 
-        // Update card with the latest sample from JSON
-        const latestSample = latest ?? filtered[filtered.length - 1];
+        const latestSample = data[0];
         updateHeartRateCard(latestSample);
+        updateActivityTempCards(latestSample);
 
         setConnectionStatus(true);
         setLastUpdated();
@@ -242,7 +282,8 @@ async function updateFlags() {
             // Support both tuple-like rows and object rows
             const id = row.id ?? row[0];
             const ts = row.timestamp ?? row[1];
-            const label = row.label ?? row.type ?? row[2] ?? "Flag";
+            const label =
+                row.flag_type ?? row.label ?? row.type ?? row[2] ?? "Flag";
             const severity = (row.severity ?? row[3] ?? "").toString().toLowerCase();
 
             let severityBadgeClass = "bg-secondary";
@@ -284,8 +325,10 @@ async function updateFlags() {
 
             if (id != null) {
                 li.addEventListener("click", () => {
-                    // For now, navigate to the JSON view; can be upgraded to a modal with charts.
-                    window.location.href = `/flag/${id}`;
+                    const flagsTab = document.getElementById("flags-tab");
+                    if (flagsTab && typeof bootstrap !== "undefined") {
+                        bootstrap.Tab.getOrCreateInstance(flagsTab).show();
+                    }
                 });
             }
 

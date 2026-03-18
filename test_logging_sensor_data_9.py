@@ -2,15 +2,16 @@
 
 import time
 import sqlite3
+import threading
+from datetime import datetime
+
+from dognosis_db import DB_PATH as DB_NAME
 from updated_heartrate_monitor_v3 import HeartRateMonitor
 from dual_IMU_step_counter_2 import DualIMUStepAnalyzer
-from datetime import datetime
-import threading
 
 # -------------------------
 # Config / Thresholds
 # -------------------------
-DB_NAME = "dog_harness.db"
 
 HIGH_TEMP_THRESHOLD = 110
 LOW_TEMP_THRESHOLD = 60

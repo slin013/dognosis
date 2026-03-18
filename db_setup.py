@@ -2,10 +2,10 @@
 
 import sqlite3
 
-DB_NAME = "dog_harness.db"
+from dognosis_db import DB_PATH
 
 def initialize_database():
-    conn = sqlite3.connect(DB_NAME)
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
     # -------------------------
@@ -15,6 +15,7 @@ def initialize_database():
     CREATE TABLE IF NOT EXISTS sensor_data (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         timestamp REAL NOT NULL,
+        datetime TEXT,
         bpm REAL,
         arrhythmia INTEGER,
         temperature REAL,
@@ -25,7 +26,11 @@ def initialize_database():
         limp INTEGER,
         raw_ir REAL,
         raw_red REAL,
-        raw_temperature REAL
+        raw_temperature REAL,
+        high_hr INTEGER DEFAULT 0,
+        low_hr INTEGER DEFAULT 0,
+        rapid_change INTEGER DEFAULT 0,
+        unstable_hr INTEGER DEFAULT 0
     );
     """)
 
@@ -42,6 +47,7 @@ def initialize_database():
     CREATE TABLE IF NOT EXISTS flags (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         timestamp REAL NOT NULL,
+        datetime TEXT,
         flag_type TEXT NOT NULL,
         description TEXT,
         is_user_generated INTEGER DEFAULT 0
@@ -69,7 +75,12 @@ def initialize_database():
 
     conn.commit()
     conn.close()
-    print("Database initialized successfully.")
+    # Add any columns missing on older DBs
+    from dognosis_db import ensure_schema
+    _c = sqlite3.connect(DB_PATH)
+    ensure_schema(_c)
+    _c.close()
+    print(f"Database initialized successfully at {DB_PATH}")
 
 if __name__ == "__main__":
     initialize_database()
