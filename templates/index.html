@@ -35,7 +35,7 @@
         </div>
     </div>
 
-    <!-- Tabs: Overview & Flags/Insights -->
+    <!-- Tabs: Overview, Flags/Insights, Dog Profile -->
     <ul class="nav nav-tabs mb-3" id="dashboardTabs" role="tablist">
         <li class="nav-item" role="presentation">
             <button class="nav-link active" id="overview-tab" data-bs-toggle="tab"
@@ -47,6 +47,12 @@
             <button class="nav-link" id="flags-tab" data-bs-toggle="tab"
                     data-bs-target="#flags-pane" type="button" role="tab">
                 Flags &amp; Insights
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="dog-profile-tab" data-bs-toggle="tab"
+                    data-bs-target="#dog-profile-pane" type="button" role="tab">
+                Dog Profile
             </button>
         </li>
     </ul>
@@ -255,6 +261,81 @@
                 </div>
             </div>
         </div>
+
+        <!-- Dog Profile tab -->
+        <div class="tab-pane fade" id="dog-profile-pane" role="tabpanel" aria-labelledby="dog-profile-tab">
+            <div class="row g-4">
+                <div class="col-12">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title mb-3">Dog Parameters</h5>
+                            <p class="text-muted mb-4">
+                                These settings are stored locally in your browser for now. Backend wiring comes later.
+                            </p>
+
+                            <form id="dogProfileForm">
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label for="dogSizeSelect" class="form-label">Dog size</label>
+                                        <select class="form-select" id="dogSizeSelect">
+                                            <option value="small">Small</option>
+                                            <option value="medium" selected>Medium</option>
+                                            <option value="large">Large</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="col-md-3">
+                                        <label for="dogAgeValue" class="form-label">Age</label>
+                                        <input type="number" class="form-control" id="dogAgeValue" min="0" step="1" value="1">
+                                    </div>
+
+                                    <div class="col-md-3">
+                                        <label for="dogAgeUnit" class="form-label">&nbsp;</label>
+                                        <select class="form-select" id="dogAgeUnit">
+                                            <option value="years" selected>Years</option>
+                                            <option value="months">Months</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <label for="dogWeightKg" class="form-label">Weight (kg)</label>
+                                        <input type="number" class="form-control" id="dogWeightKg" min="0" step="0.1" placeholder="Optional">
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <label for="dogActivityLevel" class="form-label">Activity level</label>
+                                        <select class="form-select" id="dogActivityLevel">
+                                            <option value="low">Low</option>
+                                            <option value="medium" selected>Medium</option>
+                                            <option value="high">High</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="d-flex gap-2 mt-4">
+                                    <button type="button" class="btn btn-primary" id="saveDogProfileButton">
+                                        Save
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary" id="resetDogProfileButton">
+                                        Reset
+                                    </button>
+                                </div>
+
+                                <div
+                                    id="dogProfileSavedText"
+                                    class="text-success mt-2 small"
+                                    role="status"
+                                    aria-live="polite"
+                                    style="display: none;"
+                                >
+                                    Saved locally.
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -364,6 +445,101 @@
 
 <!-- App scripts -->
 <script src="/static/charts.js"></script>
+
+<!-- Dog profile UI (client-side only for now) -->
+<script>
+    (function () {
+        const STORAGE_KEY = "dogProfile";
+        const form = document.getElementById("dogProfileForm");
+        if (!form) return;
+
+        const sizeEl = document.getElementById("dogSizeSelect");
+        const ageValueEl = document.getElementById("dogAgeValue");
+        const ageUnitEl = document.getElementById("dogAgeUnit");
+        const weightKgEl = document.getElementById("dogWeightKg");
+        const activityEl = document.getElementById("dogActivityLevel");
+        const saveBtn = document.getElementById("saveDogProfileButton");
+        const resetBtn = document.getElementById("resetDogProfileButton");
+        const savedText = document.getElementById("dogProfileSavedText");
+
+        if (!sizeEl || !ageValueEl || !ageUnitEl || !weightKgEl || !activityEl || !saveBtn || !resetBtn || !savedText) {
+            return;
+        }
+
+        const defaults = {
+            dogSize: "medium",
+            dogAgeValue: 1,
+            dogAgeUnit: "years",
+            dogWeightKg: null,
+            dogActivityLevel: "medium",
+        };
+
+        function applyProfile(p) {
+            const profile = p || defaults;
+            sizeEl.value = profile.dogSize || defaults.dogSize;
+            ageValueEl.value = profile.dogAgeValue != null ? profile.dogAgeValue : defaults.dogAgeValue;
+            ageUnitEl.value = profile.dogAgeUnit || defaults.dogAgeUnit;
+            weightKgEl.value = profile.dogWeightKg != null ? profile.dogWeightKg : "";
+            activityEl.value = profile.dogActivityLevel || defaults.dogActivityLevel;
+        }
+
+        function loadProfile() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (!raw) {
+                    applyProfile(null);
+                    return;
+                }
+                applyProfile(JSON.parse(raw));
+            } catch (e) {
+                console.warn("Failed to load dog profile from localStorage", e);
+                applyProfile(null);
+            }
+        }
+
+        function gatherProfile() {
+            const dogWeightKgRaw = weightKgEl.value;
+            const weightKg = dogWeightKgRaw === "" ? null : Number(dogWeightKgRaw);
+            return {
+                dogSize: String(sizeEl.value),
+                dogAgeValue: Number(ageValueEl.value),
+                dogAgeUnit: String(ageUnitEl.value),
+                dogWeightKg: Number.isFinite(weightKg) ? weightKg : null,
+                dogActivityLevel: String(activityEl.value),
+            };
+        }
+
+        function showSaved() {
+            savedText.style.display = "block";
+            window.setTimeout(() => {
+                savedText.style.display = "none";
+            }, 2000);
+        }
+
+        saveBtn.addEventListener("click", () => {
+            const profile = gatherProfile();
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
+                showSaved();
+            } catch (e) {
+                console.error("Failed to save dog profile", e);
+                alert("Failed to save settings locally.");
+            }
+        });
+
+        resetBtn.addEventListener("click", () => {
+            try {
+                localStorage.removeItem(STORAGE_KEY);
+            } catch (e) {
+                // ignore
+            }
+            applyProfile(null);
+            showSaved();
+        });
+
+        loadProfile();
+    })();
+</script>
 
 </body>
 </html>
