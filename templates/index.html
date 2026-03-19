@@ -131,24 +131,53 @@
                     <div class="card h-100">
                         <div class="card-body d-flex flex-column">
                             <div class="d-flex justify-content-between align-items-center mb-3">
-                                <h5 class="card-title mb-0">Flagged Incidents</h5>
-                                <small class="text-muted">Last 200 events</small>
+                                <div class="d-flex flex-column">
+                                    <h5 class="card-title mb-0">Flagged Incidents</h5>
+                                    <small class="text-muted">Last 200 events</small>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-primary" id="addFlagButton">
+                                    Add Flag
+                                </button>
                             </div>
-                            <div class="table-responsive flex-grow-1">
-                                <table class="table table-sm align-middle mb-0">
-                                    <thead class="table-light">
-                                    <tr>
-                                        <th scope="col">Time</th>
-                                        <th scope="col">Category</th>
-                                        <th scope="col">Details</th>
-                                    </tr>
-                                    </thead>
-                                    <tbody id="flagsTableBody">
-                                    <tr>
-                                        <td colspan="3" class="text-muted">Loading incidents…</td>
-                                    </tr>
-                                    </tbody>
-                                </table>
+                            <div class="row g-3 flex-grow-1">
+                                <div class="col-6">
+                                    <div class="text-muted small mb-2">Device flagged incidents</div>
+                                    <div class="table-responsive" style="max-height: 340px;">
+                                        <table class="table table-sm align-middle mb-0">
+                                            <thead class="table-light">
+                                            <tr>
+                                                <th scope="col">Time</th>
+                                                <th scope="col">Category</th>
+                                                <th scope="col">Details</th>
+                                            </tr>
+                                            </thead>
+                                            <tbody id="deviceFlagsTableBody">
+                                            <tr>
+                                                <td colspan="3" class="text-muted">Loading…</td>
+                                            </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="text-muted small mb-2">User flagged incidents</div>
+                                    <div class="table-responsive" style="max-height: 340px;">
+                                        <table class="table table-sm align-middle mb-0">
+                                            <thead class="table-light">
+                                            <tr>
+                                                <th scope="col">Time</th>
+                                                <th scope="col">Category</th>
+                                                <th scope="col">Details</th>
+                                            </tr>
+                                            </thead>
+                                            <tbody id="userFlagsTableBody">
+                                            <tr>
+                                                <td colspan="3" class="text-muted">Loading…</td>
+                                            </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -215,6 +244,44 @@
 <script id="latest-data" type="application/json">
     {{ latest | tojson }}
 </script>
+
+<!-- Add Flag Modal -->
+<div class="modal fade" id="addFlagModal" tabindex="-1" aria-labelledby="addFlagModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addFlagModalLabel">Add Flag</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="addFlagTime" class="form-label">Flag time</label>
+                    <input type="datetime-local" class="form-control" id="addFlagTime" />
+                </div>
+                <div class="mb-3">
+                    <label for="addFlagCategory" class="form-label">Category</label>
+                    <select class="form-select" id="addFlagCategory">
+                        <option value="hr_high">High heart rate (hr_high)</option>
+                        <option value="hr_low">Low heart rate (hr_low)</option>
+                        <option value="hr_rapid_change">Rapid HR change (hr_rapid_change)</option>
+                        <option value="hr_unstable">Unstable HR (hr_unstable)</option>
+                        <option value="temp_high">High temperature (temp_high)</option>
+                        <option value="temp_low">Low temperature (temp_low)</option>
+                        <option value="limp">Limp / gait issue (limp)</option>
+                    </select>
+                </div>
+                <div class="mb-0">
+                    <label for="addFlagNote" class="form-label">Note</label>
+                    <textarea class="form-control" id="addFlagNote" rows="3" placeholder="Add a short note..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveFlagButton">Save Flag</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- App scripts -->
 <script src="/static/charts.js"></script>

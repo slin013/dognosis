@@ -18,7 +18,8 @@ let hrChart = null;
 let currentTimeWindowSeconds = 1800; // default 30 min
 // Flags & Insights state for the fallback UI
 const dashboardState = {
-    flags: [],
+    deviceFlags: [],
+    userFlags: [],
     selectedFlag: null,
 };
 
@@ -202,11 +203,10 @@ function renderFlagDetail() {
     }
 }
 
-function renderFlagsTable() {
-    const tbody = document.getElementById("flagsTableBody");
+function renderFlagsTable(tbodyId, flags) {
+    const tbody = document.getElementById(tbodyId);
     if (!tbody) return;
 
-    const flags = dashboardState.flags;
     if (!Array.isArray(flags) || flags.length === 0) {
         tbody.innerHTML =
             '<tr><td colspan="3" class="text-muted">No incidents recorded yet</td></tr>';
@@ -232,6 +232,7 @@ function renderFlagsTable() {
         const parts = [];
         if (flag.bpm != null) parts.push(`${Math.round(flag.bpm)} bpm`);
         if (flag.temperature != null) parts.push(`${Number(flag.temperature).toFixed(1)} °C`);
+        if (flag.step_count != null) parts.push(`${flag.step_count} steps`);
         if (flag.limp === 1) parts.push("limp");
         if (flag.asymmetry != null) parts.push(`asym ${Number(flag.asymmetry).toFixed(2)}`);
         detailCell.textContent = parts.join(" • ") || flag.description || "";
@@ -251,18 +252,20 @@ function renderFlagsTable() {
 }
 
 function highlightSelectedFlag() {
-    const tbody = document.getElementById("flagsTableBody");
-    if (!tbody) return;
-
     const selectedId =
         dashboardState.selectedFlag && dashboardState.selectedFlag.id != null
             ? String(dashboardState.selectedFlag.id)
             : null;
 
-    const trs = tbody.querySelectorAll("tr[data-flag-id]");
-    trs.forEach((tr) => {
-        const isSelected = selectedId != null && tr.dataset.flagId === selectedId;
-        tr.classList.toggle("table-info", isSelected);
+    ["deviceFlagsTableBody", "userFlagsTableBody"].forEach((tbodyId) => {
+        const tbody = document.getElementById(tbodyId);
+        if (!tbody) return;
+
+        const trs = tbody.querySelectorAll("tr[data-flag-id]");
+        trs.forEach((tr) => {
+            const isSelected = selectedId != null && tr.dataset.flagId === selectedId;
+            tr.classList.toggle("table-info", isSelected);
+        });
     });
 }
 
@@ -271,22 +274,100 @@ async function loadFlagsSummary() {
         const data = await fetchJson("/flags-summary");
         if (!Array.isArray(data)) throw new Error("Unexpected flags-summary payload");
 
-        dashboardState.flags = data;
-        renderFlagsTable();
+        const deviceFlags = data.filter((f) => Number(f.is_user_generated) === 0);
+        const userFlags = data.filter((f) => Number(f.is_user_generated) === 1);
 
-        if (!dashboardState.selectedFlag && data.length > 0) {
-            dashboardState.selectedFlag = data[0];
-            highlightSelectedFlag();
-            renderFlagDetail();
+        dashboardState.deviceFlags = deviceFlags;
+        dashboardState.userFlags = userFlags;
+
+        renderFlagsTable("deviceFlagsTableBody", deviceFlags);
+        renderFlagsTable("userFlagsTableBody", userFlags);
+
+        const selectedId =
+            dashboardState.selectedFlag && dashboardState.selectedFlag.id != null
+                ? String(dashboardState.selectedFlag.id)
+                : null;
+
+        if (selectedId) {
+            const match = [...deviceFlags, ...userFlags].find((f) => String(f.id) === selectedId);
+            if (match) dashboardState.selectedFlag = match;
         }
+
+        if (!dashboardState.selectedFlag) {
+            dashboardState.selectedFlag = deviceFlags[0] || userFlags[0] || null;
+        }
+
+        highlightSelectedFlag();
+        renderFlagDetail();
     } catch (err) {
         console.error("Error loading flags summary", err);
-        const tbody = document.getElementById("flagsTableBody");
-        if (tbody) {
-            tbody.innerHTML =
-                '<tr><td colspan="3" class="text-danger">Failed to load incidents</td></tr>';
-        }
+        const dTbody = document.getElementById("deviceFlagsTableBody");
+        const uTbody = document.getElementById("userFlagsTableBody");
+        if (dTbody) dTbody.innerHTML = '<tr><td colspan="3" class="text-danger">Failed to load incidents</td></tr>';
+        if (uTbody) uTbody.innerHTML = '<tr><td colspan="3" class="text-danger">Failed to load incidents</td></tr>';
     }
+}
+
+function toDatetimeLocalValue(date) {
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(
+        date.getHours()
+    )}:${pad(date.getMinutes())}`;
+}
+
+function initAddFlagModal() {
+    const addFlagButton = document.getElementById("addFlagButton");
+    const modalEl = document.getElementById("addFlagModal");
+    const saveButton = document.getElementById("saveFlagButton");
+
+    if (!addFlagButton || !modalEl || !saveButton) return; // modal not present on this layout
+
+    const modal = window.bootstrap ? window.bootstrap.Modal.getOrCreateInstance(modalEl) : null;
+
+    const timeInput = document.getElementById("addFlagTime");
+    const categorySelect = document.getElementById("addFlagCategory");
+    const noteInput = document.getElementById("addFlagNote");
+
+    if (!timeInput || !categorySelect || !noteInput) return;
+
+    addFlagButton.addEventListener("click", () => {
+        timeInput.value = toDatetimeLocalValue(new Date());
+        noteInput.value = "";
+        categorySelect.value = "hr_high";
+        if (modal) modal.show();
+    });
+
+    saveButton.addEventListener("click", async () => {
+        try {
+            const dtStr = timeInput.value;
+            const ts = Math.floor(new Date(dtStr).getTime() / 1000);
+            const flag_type = categorySelect.value;
+            const description = noteInput.value || "";
+
+            if (!Number.isFinite(ts)) throw new Error("Invalid date/time");
+
+            const res = await fetch("/flags-add", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ timestamp: ts, flag_type, description }),
+            });
+
+            if (!res.ok) {
+                throw new Error(`HTTP ${res.status}`);
+            }
+
+            const out = await res.json().catch(() => ({}));
+            if (out && out.flag_id != null) {
+                dashboardState.selectedFlag = { id: out.flag_id };
+            }
+
+            if (modal) modal.hide();
+            await loadFlagsSummary();
+        } catch (err) {
+            console.error("Failed to add flag", err);
+            alert("Failed to add flag. Check the console for details.");
+        }
+    });
 }
 
 async function updateChart() {
@@ -415,6 +496,7 @@ function initTimeWindowButtons() {
 function start() {
     initChart();
     initTimeWindowButtons();
+    initAddFlagModal();
     updateChart();
     updateFlags();
     loadFlagsSummary();

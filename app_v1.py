@@ -181,5 +181,50 @@ def profile():
     conn.close()
     return jsonify(row)
 
+
+@app.route("/flags-add", methods=["POST"])
+def flags_add():
+    """
+    Add a user-generated flag (v1 API).
+    Expected JSON:
+      {
+        "timestamp": <unix seconds (number)>,
+        "flag_type": "<category string>",
+        "description": "<note string>"
+      }
+    """
+    payload = request.get_json(force=True, silent=True) or {}
+
+    ts = payload.get("timestamp")
+    flag_type = payload.get("flag_type")
+    description = payload.get("description", None)
+
+    if ts is None or flag_type is None or str(flag_type).strip() == "":
+        return jsonify({"status": "error", "message": "Missing timestamp or flag_type"}), 400
+
+    try:
+        ts_int = int(float(ts))
+    except (TypeError, ValueError):
+        return jsonify({"status": "error", "message": "Invalid timestamp"}), 400
+
+    import datetime as _dt
+
+    dt_str = _dt.datetime.fromtimestamp(ts_int).strftime("%Y-%m-%d %H:%M:%S")
+
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        INSERT INTO flags (timestamp, datetime, flag_type, description, is_user_generated)
+        VALUES (?, ?, ?, ?, 1)
+        """,
+        (ts_int, dt_str, str(flag_type), description),
+    )
+    flag_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+
+    return jsonify({"status": "ok", "flag_id": flag_id}), 201
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)

@@ -21,10 +21,15 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
 
     for col, sql_type in (
         ("datetime", "TEXT"),
+        ("bpm", "REAL"),
         ("high_hr", "INTEGER DEFAULT 0"),
         ("low_hr", "INTEGER DEFAULT 0"),
         ("rapid_change", "INTEGER DEFAULT 0"),
         ("unstable_hr", "INTEGER DEFAULT 0"),
+        ("temperature", "REAL"),
+        ("step_count", "INTEGER"),
+        ("limp", "INTEGER"),
+        ("asymmetry", "REAL"),
     ):
         if col not in sensor_cols:
             try:
@@ -37,6 +42,12 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
     if "datetime" not in flag_cols:
         try:
             c.execute("ALTER TABLE flags ADD COLUMN datetime TEXT")
+        except sqlite3.OperationalError:
+            pass
+
+    if "is_user_generated" not in flag_cols:
+        try:
+            c.execute("ALTER TABLE flags ADD COLUMN is_user_generated INTEGER DEFAULT 0")
         except sqlite3.OperationalError:
             pass
 
