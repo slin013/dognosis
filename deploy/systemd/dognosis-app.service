@@ -1,0 +1,17 @@
+[Unit]
+Description=Dognosis Flask App
+After=network-online.target dognosis-logger.service
+Wants=network-online.target
+Requires=dognosis-logger.service
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory={{PROJECT_DIR}}
+ExecStart={{PYTHON_BIN}} {{PROJECT_DIR}}/app.py
+Restart=always
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

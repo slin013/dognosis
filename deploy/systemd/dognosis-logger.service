@@ -1,0 +1,16 @@
+[Unit]
+Description=Dognosis Sensor Logger
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory={{PROJECT_DIR}}
+ExecStart={{PYTHON_BIN}} {{PROJECT_DIR}}/test_logging_sensor_data_9.py
+Restart=always
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
