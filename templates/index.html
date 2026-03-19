@@ -127,35 +127,44 @@
         <div class="tab-pane fade" id="flags-pane" role="tabpanel" aria-labelledby="flags-tab">
             <!-- Selected incident detail & insights (top) -->
             <div class="row g-4">
-                <div class="col-lg-5">
+                <div class="col-12">
                     <div class="card h-100">
-                        <div class="card-body d-flex flex-column">
+                        <div class="card-body">
                             <h5 class="card-title mb-3">Incident Details</h5>
                             <div id="flagDetailEmpty" class="text-muted mb-2">
                                 Select an incident to see details and insights.
                             </div>
-                            <div id="flagDetailContent" class="d-none flex-column">
-                                <p class="mb-1">
-                                    <strong>When:</strong>
-                                    <span id="flagDetailTime"></span>
-                                </p>
-                                <p class="mb-1">
-                                    <strong>Category:</strong>
-                                    <span id="flagDetailType" class="badge bg-secondary"></span>
-                                </p>
-                                <p class="mb-1">
-                                    <strong>Metrics:</strong>
-                                    <span id="flagDetailMetrics"></span>
-                                </p>
-                                <p class="mb-2">
-                                    <strong>Notes:</strong>
-                                    <span id="flagDetailDescription"></span>
-                                </p>
-                                <hr>
-                                <h6 class="mb-2">Insights</h6>
-                                <ul class="mb-0" id="flagDetailInsights">
-                                    <!-- populated dynamically -->
-                                </ul>
+                            <div id="flagDetailContent" class="d-none">
+                                <div class="row g-4">
+                                    <div class="col-lg-6">
+                                        <p class="mb-1">
+                                            <strong>When:</strong>
+                                            <span id="flagDetailTime"></span>
+                                        </p>
+                                        <p class="mb-1">
+                                            <strong>Category:</strong>
+                                            <span id="flagDetailType" class="badge bg-secondary"></span>
+                                        </p>
+                                        <p class="mb-1">
+                                            <strong>Metrics:</strong>
+                                            <span id="flagDetailMetrics"></span>
+                                        </p>
+                                    </div>
+                                    <div class="col-lg-6">
+                                        <p class="mb-2">
+                                            <strong>Notes:</strong>
+                                            <span id="flagDetailDescription"></span>
+                                        </p>
+                                        <h6 class="mb-2">Insights</h6>
+                                        <ul
+                                            class="mb-0"
+                                            id="flagDetailInsights"
+                                            style="max-height: 120px; overflow:auto;"
+                                        >
+                                            <!-- populated dynamically -->
+                                        </ul>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
