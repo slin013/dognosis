@@ -559,4 +559,4 @@ loadFlagsSummary();
 
 setInterval(updateChart, 3000);
 setInterval(updateFlags, 10000);
-setInterval(loadFlagsSummary, 60000);
+setInterval(loadFlagsSummary, 10000);

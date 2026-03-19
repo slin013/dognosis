@@ -16,6 +16,11 @@ async function fetchJson(url) {
 
 let hrChart = null;
 let currentTimeWindowSeconds = 1800; // default 30 min
+// Flags & Insights state for the fallback UI
+const dashboardState = {
+    flags: [],
+    selectedFlag: null,
+};
 
 function setConnectionStatus(isOnline) {
     const badge = document.getElementById("connectionStatus");
@@ -134,6 +139,135 @@ function initChart() {
             },
         },
     });
+}
+
+function mapFlagTypeToLabel(flagType) {
+    if (!flagType) return "Flag";
+    return String(flagType).replace(/_/g, " ");
+}
+
+function renderFlagDetail() {
+    const emptyEl = document.getElementById("flagDetailEmpty");
+    const contentEl = document.getElementById("flagDetailContent");
+    if (!emptyEl || !contentEl) return; // element not present in some layouts
+
+    const flag = dashboardState.selectedFlag;
+    if (!flag) {
+        emptyEl.classList.remove("d-none");
+        contentEl.classList.add("d-none");
+        return;
+    }
+
+    emptyEl.classList.add("d-none");
+    contentEl.classList.remove("d-none");
+
+    const timeEl = document.getElementById("flagDetailTime");
+    const typeEl = document.getElementById("flagDetailType");
+    const metricsEl = document.getElementById("flagDetailMetrics");
+    const descEl = document.getElementById("flagDetailDescription");
+    const insightsEl = document.getElementById("flagDetailInsights");
+
+    if (timeEl) {
+        if (flag.timestamp) {
+            timeEl.textContent = new Date(flag.timestamp * 1000).toLocaleString();
+        } else {
+            timeEl.textContent = "Unknown time";
+        }
+    }
+
+    if (typeEl) {
+        typeEl.textContent = mapFlagTypeToLabel(flag.flag_type);
+    }
+
+    if (metricsEl) {
+        const parts = [];
+        if (flag.bpm != null) parts.push(`${Math.round(flag.bpm)} bpm`);
+        if (flag.temperature != null) parts.push(`${Number(flag.temperature).toFixed(1)} °C`);
+        if (flag.step_count != null) parts.push(`${flag.step_count} steps`);
+        if (flag.limp === 1) parts.push("limp");
+        if (flag.asymmetry != null) parts.push(`asym ${Number(flag.asymmetry).toFixed(2)}`);
+        metricsEl.textContent = parts.join(" • ") || "No sensor context available";
+    }
+
+    if (descEl) {
+        descEl.textContent = flag.description || "No additional description.";
+    }
+
+    // Keep insights simple in this fallback script.
+    if (insightsEl) {
+        insightsEl.innerHTML = "";
+        const li = document.createElement("li");
+        li.textContent = "Insights are limited in the fallback UI. (Check the main UI assets if you want full insights.)";
+        insightsEl.appendChild(li);
+    }
+}
+
+function renderFlagsTable() {
+    const tbody = document.getElementById("flagsTableBody");
+    if (!tbody) return;
+
+    const flags = dashboardState.flags;
+    if (!Array.isArray(flags) || flags.length === 0) {
+        tbody.innerHTML =
+            '<tr><td colspan="3" class="text-muted">No incidents recorded yet</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = "";
+
+    flags.forEach((flag) => {
+        const tr = document.createElement("tr");
+        tr.style.cursor = "pointer";
+
+        const tsCell = document.createElement("td");
+        tsCell.textContent = flag.timestamp
+            ? new Date(flag.timestamp * 1000).toLocaleString()
+            : "Unknown time";
+
+        const typeCell = document.createElement("td");
+        typeCell.textContent = mapFlagTypeToLabel(flag.flag_type);
+
+        const detailCell = document.createElement("td");
+        const parts = [];
+        if (flag.bpm != null) parts.push(`${Math.round(flag.bpm)} bpm`);
+        if (flag.temperature != null) parts.push(`${Number(flag.temperature).toFixed(1)} °C`);
+        if (flag.limp === 1) parts.push("limp");
+        if (flag.asymmetry != null) parts.push(`asym ${Number(flag.asymmetry).toFixed(2)}`);
+        detailCell.textContent = parts.join(" • ") || flag.description || "";
+
+        tr.appendChild(tsCell);
+        tr.appendChild(typeCell);
+        tr.appendChild(detailCell);
+
+        tr.addEventListener("click", () => {
+            dashboardState.selectedFlag = flag;
+            renderFlagDetail();
+        });
+
+        tbody.appendChild(tr);
+    });
+}
+
+async function loadFlagsSummary() {
+    try {
+        const data = await fetchJson("/flags-summary");
+        if (!Array.isArray(data)) throw new Error("Unexpected flags-summary payload");
+
+        dashboardState.flags = data;
+        renderFlagsTable();
+
+        if (!dashboardState.selectedFlag && data.length > 0) {
+            dashboardState.selectedFlag = data[0];
+            renderFlagDetail();
+        }
+    } catch (err) {
+        console.error("Error loading flags summary", err);
+        const tbody = document.getElementById("flagsTableBody");
+        if (tbody) {
+            tbody.innerHTML =
+                '<tr><td colspan="3" class="text-danger">Failed to load incidents</td></tr>';
+        }
+    }
 }
 
 async function updateChart() {
@@ -264,8 +398,10 @@ function start() {
     initTimeWindowButtons();
     updateChart();
     updateFlags();
+    loadFlagsSummary();
     setInterval(updateChart, 3000);
     setInterval(updateFlags, 10000);
+    setInterval(loadFlagsSummary, 10000);
 }
 
 start();
