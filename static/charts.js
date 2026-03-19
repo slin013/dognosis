@@ -15,6 +15,8 @@ async function fetchJson(url) {
 }
 
 let hrChart = null;
+let stepsChart = null;
+let tempChart = null;
 let currentTimeWindowSeconds = 1800; // default 30 min
 // Flags & Insights state for the fallback UI
 const dashboardState = {
@@ -140,6 +142,74 @@ function initChart() {
             },
         },
     });
+
+    // Steps chart (optional canvas)
+    const stepsCanvas = document.getElementById("stepsChart");
+    if (stepsCanvas) {
+        stepsChart = new Chart(stepsCanvas.getContext("2d"), {
+            type: "line",
+            data: {
+                labels: [],
+                datasets: [
+                    {
+                        label: "Steps",
+                        data: [],
+                        borderWidth: 2,
+                        borderColor: "rgba(25, 135, 84, 1)",
+                        backgroundColor: "rgba(25, 135, 84, 0.08)",
+                        tension: 0.25,
+                        pointRadius: 0,
+                    },
+                ],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: true },
+                    tooltip: { mode: "index", intersect: false },
+                },
+                scales: {
+                    x: { ticks: { autoSkip: true, maxTicksLimit: 8 } },
+                    y: { beginAtZero: false },
+                },
+            },
+        });
+    }
+
+    // Temperature chart (optional canvas)
+    const tempCanvas = document.getElementById("tempChart");
+    if (tempCanvas) {
+        tempChart = new Chart(tempCanvas.getContext("2d"), {
+            type: "line",
+            data: {
+                labels: [],
+                datasets: [
+                    {
+                        label: "Temperature",
+                        data: [],
+                        borderWidth: 2,
+                        borderColor: "rgba(255, 193, 7, 1)",
+                        backgroundColor: "rgba(255, 193, 7, 0.10)",
+                        tension: 0.25,
+                        pointRadius: 0,
+                    },
+                ],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: true },
+                    tooltip: { mode: "index", intersect: false },
+                },
+                scales: {
+                    x: { ticks: { autoSkip: true, maxTicksLimit: 8 } },
+                    y: { beginAtZero: false },
+                },
+            },
+        });
+    }
 }
 
 function mapFlagTypeToLabel(flagType) {
@@ -494,6 +564,16 @@ async function updateChart() {
                 hrChart.data.datasets[0].data = [];
                 hrChart.update();
             }
+            if (stepsChart) {
+                stepsChart.data.labels = [];
+                stepsChart.data.datasets[0].data = [];
+                stepsChart.update();
+            }
+            if (tempChart) {
+                tempChart.data.labels = [];
+                tempChart.data.datasets[0].data = [];
+                tempChart.update();
+            }
             setConnectionStatus(true);
             setLastUpdated();
             updateHeartRateCard(null);
@@ -522,6 +602,20 @@ async function updateChart() {
             hrChart.data.labels = timestamps;
             hrChart.data.datasets[0].data = heartRates;
             hrChart.update();
+        }
+
+        if (stepsChart) {
+            const steps = chronological.map((s) => s.step_count ?? s.steps ?? s[4]);
+            stepsChart.data.labels = timestamps;
+            stepsChart.data.datasets[0].data = steps;
+            stepsChart.update();
+        }
+
+        if (tempChart) {
+            const temps = chronological.map((s) => s.temperature ?? s.temp ?? s[2]);
+            tempChart.data.labels = timestamps;
+            tempChart.data.datasets[0].data = temps;
+            tempChart.update();
         }
 
         const latestSample = data[0];

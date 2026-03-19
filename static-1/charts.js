@@ -68,6 +68,72 @@ let hrChart = new Chart(ctx, {
     }
 });
 
+let stepsChart = null;
+let tempChart = null;
+
+// Optional charts (only present if the template includes these canvases)
+const stepsCanvasEl = document.getElementById("stepsChart");
+if (stepsCanvasEl) {
+    stepsChart = new Chart(stepsCanvasEl.getContext("2d"), {
+        type: "line",
+        data: {
+            labels: [],
+            datasets: [{
+                label: "Steps",
+                data: [],
+                borderWidth: 2,
+                borderColor: "rgba(25, 135, 84, 1)",
+                backgroundColor: "rgba(25, 135, 84, 0.08)",
+                tension: 0.25,
+                pointRadius: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: true },
+                tooltip: { mode: "index", intersect: false }
+            },
+            scales: {
+                x: { ticks: { autoSkip: true, maxTicksLimit: 8 } },
+                y: { beginAtZero: false }
+            }
+        }
+    });
+}
+
+const tempCanvasEl = document.getElementById("tempChart");
+if (tempCanvasEl) {
+    tempChart = new Chart(tempCanvasEl.getContext("2d"), {
+        type: "line",
+        data: {
+            labels: [],
+            datasets: [{
+                label: "Temperature",
+                data: [],
+                borderWidth: 2,
+                borderColor: "rgba(255, 193, 7, 1)",
+                backgroundColor: "rgba(255, 193, 7, 0.10)",
+                tension: 0.25,
+                pointRadius: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: true },
+                tooltip: { mode: "index", intersect: false }
+            },
+            scales: {
+                x: { ticks: { autoSkip: true, maxTicksLimit: 8 } },
+                y: { beginAtZero: false }
+            }
+        }
+    });
+}
+
 let currentTimeWindowSeconds = 1800; // default 30 minutes
 
 function setConnectionStatus(isOnline) {
@@ -218,6 +284,16 @@ async function updateChart() {
             hrChart.data.labels = [];
             hrChart.data.datasets[0].data = [];
             hrChart.update();
+            if (stepsChart) {
+                stepsChart.data.labels = [];
+                stepsChart.data.datasets[0].data = [];
+                stepsChart.update();
+            }
+            if (tempChart) {
+                tempChart.data.labels = [];
+                tempChart.data.datasets[0].data = [];
+                tempChart.update();
+            }
             setConnectionStatus(true);
             setLastUpdated();
             updateHeartRateCard(null);
@@ -247,6 +323,20 @@ async function updateChart() {
         hrChart.data.labels = timestamps;
         hrChart.data.datasets[0].data = heartRates;
         hrChart.update();
+
+        if (stepsChart) {
+            const steps = chronological.map((sample) => sample.step_count ?? sample.steps ?? sample[4]);
+            stepsChart.data.labels = timestamps;
+            stepsChart.data.datasets[0].data = steps;
+            stepsChart.update();
+        }
+
+        if (tempChart) {
+            const temps = chronological.map((sample) => sample.temperature ?? sample.temp ?? sample[2]);
+            tempChart.data.labels = timestamps;
+            tempChart.data.datasets[0].data = temps;
+            tempChart.update();
+        }
 
         const latestSample = data[0];
         updateHeartRateCard(latestSample);
