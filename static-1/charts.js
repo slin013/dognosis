@@ -415,6 +415,9 @@ function renderFlagsTable() {
 
     flags.forEach(flag => {
         const tr = document.createElement("tr");
+        if (flag && flag.id != null) {
+            tr.dataset.flagId = String(flag.id);
+        }
         tr.style.cursor = "pointer";
 
         const tsCell = document.createElement("td");
@@ -448,8 +451,24 @@ function renderFlagsTable() {
     });
 }
 
+function highlightSelectedFlag() {
+    const tbody = document.getElementById("flagsTableBody");
+    if (!tbody) return;
+
+    const selectedId = dashboardState.selectedFlag && dashboardState.selectedFlag.id != null
+        ? String(dashboardState.selectedFlag.id)
+        : null;
+
+    const trs = tbody.querySelectorAll("tr[data-flag-id]");
+    trs.forEach(tr => {
+        const isSelected = selectedId != null && tr.dataset.flagId === selectedId;
+        tr.classList.toggle("table-info", isSelected);
+    });
+}
+
 function selectFlag(flag) {
     dashboardState.selectedFlag = flag;
+    highlightSelectedFlag();
     renderFlagDetail();
 }
 
