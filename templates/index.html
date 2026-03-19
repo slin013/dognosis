@@ -293,6 +293,49 @@
     </div>
 </div>
 
+<!-- Edit / Delete Flag Modal -->
+<div class="modal fade" id="editFlagModal" tabindex="-1" aria-labelledby="editFlagModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editFlagModalLabel">Edit Flag</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editFlagId" />
+
+                <div class="mb-3">
+                    <label for="editFlagTime" class="form-label">Flag time</label>
+                    <input type="datetime-local" class="form-control" id="editFlagTime" />
+                </div>
+
+                <div class="mb-3">
+                    <label for="editFlagCategory" class="form-label">Category</label>
+                    <select class="form-select" id="editFlagCategory">
+                        <option value="hr_high">High heart rate (hr_high)</option>
+                        <option value="hr_low">Low heart rate (hr_low)</option>
+                        <option value="hr_rapid_change">Rapid HR change (hr_rapid_change)</option>
+                        <option value="hr_unstable">Unstable HR (hr_unstable)</option>
+                        <option value="temp_high">High temperature (temp_high)</option>
+                        <option value="temp_low">Low temperature (temp_low)</option>
+                        <option value="limp">Limp / gait issue (limp)</option>
+                    </select>
+                </div>
+
+                <div class="mb-0">
+                    <label for="editFlagNote" class="form-label">Note</label>
+                    <textarea class="form-control" id="editFlagNote" rows="3" placeholder="Edit a short note..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-danger" id="deleteFlagButton">Delete</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveEditFlagButton">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- App scripts -->
 <script src="/static/charts.js"></script>
 

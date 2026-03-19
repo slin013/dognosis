@@ -247,6 +247,16 @@ function renderFlagsTable(tbodyId, flags) {
             renderFlagDetail();
         });
 
+        // Allow editing/deleting only for user-flagged incidents.
+        if (tbodyId === "userFlagsTableBody") {
+            tr.addEventListener("dblclick", () => {
+                dashboardState.selectedFlag = flag;
+                highlightSelectedFlag();
+                renderFlagDetail();
+                openEditFlagModal(flag);
+            });
+        }
+
         tbody.appendChild(tr);
     });
 }
@@ -366,6 +376,110 @@ function initAddFlagModal() {
         } catch (err) {
             console.error("Failed to add flag", err);
             alert("Failed to add flag. Check the console for details.");
+        }
+    });
+}
+
+function openEditFlagModal(flag) {
+    const modalEl = document.getElementById("editFlagModal");
+    const editFlagIdInput = document.getElementById("editFlagId");
+    const editTimeInput = document.getElementById("editFlagTime");
+    const editCategorySelect = document.getElementById("editFlagCategory");
+    const editNoteInput = document.getElementById("editFlagNote");
+
+    if (!modalEl || !editFlagIdInput || !editTimeInput || !editCategorySelect || !editNoteInput) {
+        return;
+    }
+
+    if (!flag) return;
+
+    editFlagIdInput.value = flag.id != null ? String(flag.id) : "";
+
+    if (flag.timestamp != null) {
+        const dt = new Date(Number(flag.timestamp) * 1000);
+        editTimeInput.value = toDatetimeLocalValue(dt);
+    }
+
+    editCategorySelect.value = flag.flag_type || "hr_high";
+    editNoteInput.value = flag.description || "";
+
+    const modal = window.bootstrap ? window.bootstrap.Modal.getOrCreateInstance(modalEl) : null;
+    if (modal) modal.show();
+}
+
+function initEditDeleteFlagModal() {
+    const modalEl = document.getElementById("editFlagModal");
+    const saveButton = document.getElementById("saveEditFlagButton");
+    const deleteButton = document.getElementById("deleteFlagButton");
+
+    if (!modalEl || !saveButton || !deleteButton) return;
+
+    const editFlagIdInput = document.getElementById("editFlagId");
+    const editTimeInput = document.getElementById("editFlagTime");
+    const editCategorySelect = document.getElementById("editFlagCategory");
+    const editNoteInput = document.getElementById("editFlagNote");
+
+    if (!editFlagIdInput || !editTimeInput || !editCategorySelect || !editNoteInput) return;
+
+    saveButton.addEventListener("click", async () => {
+        try {
+            const id = editFlagIdInput.value;
+            const ts = Math.floor(new Date(editTimeInput.value).getTime() / 1000);
+            const flag_type = editCategorySelect.value;
+            const description = editNoteInput.value || "";
+
+            if (!id) throw new Error("Missing flag id");
+            if (!Number.isFinite(ts)) throw new Error("Invalid timestamp");
+
+            const res = await fetch("/flags-update", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id, timestamp: ts, flag_type, description }),
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+            const out = await res.json().catch(() => ({}));
+            const newId = out && out.flag_id != null ? out.flag_id : null;
+
+            const modal = window.bootstrap
+                ? window.bootstrap.Modal.getOrCreateInstance(modalEl)
+                : null;
+            if (modal) modal.hide();
+
+            if (newId != null) dashboardState.selectedFlag = { id: newId };
+            await loadFlagsSummary();
+        } catch (err) {
+            console.error("Failed to update flag", err);
+            alert("Failed to update flag. Check console for details.");
+        }
+    });
+
+    deleteButton.addEventListener("click", async () => {
+        try {
+            const id = editFlagIdInput.value;
+            if (!id) throw new Error("Missing flag id");
+
+            const ok = confirm("Delete this user-flag? This cannot be undone.");
+            if (!ok) return;
+
+            const res = await fetch("/flags-delete", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id }),
+            });
+
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+            const modal = window.bootstrap
+                ? window.bootstrap.Modal.getOrCreateInstance(modalEl)
+                : null;
+            if (modal) modal.hide();
+
+            dashboardState.selectedFlag = null;
+            await loadFlagsSummary();
+        } catch (err) {
+            console.error("Failed to delete flag", err);
+            alert("Failed to delete flag. Check console for details.");
         }
     });
 }
@@ -497,6 +611,7 @@ function start() {
     initChart();
     initTimeWindowButtons();
     initAddFlagModal();
+    initEditDeleteFlagModal();
     updateChart();
     updateFlags();
     loadFlagsSummary();

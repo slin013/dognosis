@@ -241,6 +241,88 @@ def flags_add():
     return jsonify({"status": "ok", "flag_id": flag_id}), 201
 
 
+@app.route("/flags-update", methods=["POST"])
+def flags_update():
+    """
+    Update a user-generated flag.
+    Expected JSON:
+      { "id": <flag_id>, "timestamp": <unix seconds>, "flag_type": "<category>", "description": "<note>" }
+    """
+    payload = request.get_json(force=True, silent=True) or {}
+
+    flag_id = payload.get("id")
+    ts = payload.get("timestamp")
+    flag_type = payload.get("flag_type")
+    description = payload.get("description", None)
+
+    if flag_id is None or ts is None or flag_type is None or str(flag_type).strip() == "":
+        return jsonify({"status": "error", "message": "Missing id/timestamp/flag_type"}), 400
+
+    try:
+        flag_id_int = int(float(flag_id))
+        ts_int = int(float(ts))
+    except (TypeError, ValueError):
+        return jsonify({"status": "error", "message": "Invalid id or timestamp"}), 400
+
+    import datetime as _dt
+    dt_str = _dt.datetime.fromtimestamp(ts_int).strftime("%Y-%m-%d %H:%M:%S")
+
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        UPDATE flags
+        SET timestamp = ?, datetime = ?, flag_type = ?, description = ?
+        WHERE id = ? AND is_user_generated = 1
+        """,
+        (ts_int, dt_str, str(flag_type), description, flag_id_int),
+    )
+    conn.commit()
+    updated = cursor.rowcount
+    conn.close()
+
+    if updated == 0:
+        return jsonify({"status": "error", "message": "Flag not found or not user-generated"}), 404
+
+    return jsonify({"status": "ok", "flag_id": flag_id_int}), 200
+
+
+@app.route("/flags-delete", methods=["POST"])
+def flags_delete():
+    """
+    Delete a user-generated flag.
+    Expected JSON: { "id": <flag_id> }
+    """
+    payload = request.get_json(force=True, silent=True) or {}
+    flag_id = payload.get("id")
+
+    if flag_id is None:
+        return jsonify({"status": "error", "message": "Missing id"}), 400
+
+    try:
+        flag_id_int = int(float(flag_id))
+    except (TypeError, ValueError):
+        return jsonify({"status": "error", "message": "Invalid id"}), 400
+
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        DELETE FROM flags
+        WHERE id = ? AND is_user_generated = 1
+        """,
+        (flag_id_int,),
+    )
+    conn.commit()
+    deleted = cursor.rowcount
+    conn.close()
+
+    if deleted == 0:
+        return jsonify({"status": "error", "message": "Flag not found or not user-generated"}), 404
+
+    return jsonify({"status": "ok"}), 200
+
+
 if __name__ == "__main__":
     os.makedirs(os.path.dirname(DB_PATH) or ".", exist_ok=True)
     _c = sqlite3.connect(DB_PATH)
