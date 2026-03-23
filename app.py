@@ -239,13 +239,7 @@ def incident_context(flag_id):
             high_hr,
             low_hr,
             rapid_change,
-            unstable_hr,
-            arrhythmia,
-            latest_step_length,
-            avg_step_length,
-            raw_ir,
-            raw_red,
-            raw_temperature
+            unstable_hr
         FROM sensor_data
         WHERE timestamp BETWEEN ? AND ?
         ORDER BY timestamp ASC
