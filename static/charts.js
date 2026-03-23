@@ -24,6 +24,7 @@ const dashboardState = {
     userFlags: [],
     selectedFlag: null,
 };
+let incidentDataRequestToken = 0;
 
 function setConnectionStatus(isOnline) {
     const badge = document.getElementById("connectionStatus");
@@ -217,6 +218,100 @@ function mapFlagTypeToLabel(flagType) {
     return String(flagType).replace(/_/g, " ");
 }
 
+function formatMaybeNumber(value, digits = 1) {
+    if (value == null) return "--";
+    const n = Number(value);
+    if (!Number.isFinite(n)) return "--";
+    return n.toFixed(digits);
+}
+
+function formatIncidentTimestamp(ts, fallbackDatetime) {
+    if (ts != null) {
+        return new Date(Number(ts) * 1000).toLocaleString();
+    }
+    if (fallbackDatetime) return String(fallbackDatetime);
+    return "--";
+}
+
+function renderIncidentDataRows(samples) {
+    const tbody = document.getElementById("flagIncidentDataBody");
+    const emptyEl = document.getElementById("flagIncidentDataEmpty");
+    const loadingEl = document.getElementById("flagIncidentDataLoading");
+    if (!tbody || !emptyEl || !loadingEl) return;
+
+    loadingEl.classList.add("d-none");
+    tbody.innerHTML = "";
+
+    if (!Array.isArray(samples) || samples.length === 0) {
+        emptyEl.classList.remove("d-none");
+        tbody.innerHTML =
+            '<tr><td colspan="6" class="text-muted">No samples in this window</td></tr>';
+        return;
+    }
+
+    emptyEl.classList.add("d-none");
+    samples.forEach((sample) => {
+        const tr = document.createElement("tr");
+
+        const timeCell = document.createElement("td");
+        timeCell.textContent = formatIncidentTimestamp(sample.timestamp, sample.datetime);
+
+        const bpmCell = document.createElement("td");
+        bpmCell.textContent = formatMaybeNumber(sample.bpm, 0);
+
+        const tempCell = document.createElement("td");
+        tempCell.textContent = formatMaybeNumber(sample.temperature, 1);
+
+        const stepsCell = document.createElement("td");
+        stepsCell.textContent = sample.step_count != null ? String(sample.step_count) : "--";
+
+        const limpCell = document.createElement("td");
+        limpCell.textContent = sample.limp === 1 ? "Yes" : "No";
+
+        const asymCell = document.createElement("td");
+        asymCell.textContent = formatMaybeNumber(sample.asymmetry, 2);
+
+        tr.appendChild(timeCell);
+        tr.appendChild(bpmCell);
+        tr.appendChild(tempCell);
+        tr.appendChild(stepsCell);
+        tr.appendChild(limpCell);
+        tr.appendChild(asymCell);
+        tbody.appendChild(tr);
+    });
+}
+
+async function loadIncidentDataForFlag(flag) {
+    const tbody = document.getElementById("flagIncidentDataBody");
+    const emptyEl = document.getElementById("flagIncidentDataEmpty");
+    const loadingEl = document.getElementById("flagIncidentDataLoading");
+    if (!tbody || !emptyEl || !loadingEl) return;
+
+    if (!flag || flag.id == null) {
+        loadingEl.classList.add("d-none");
+        emptyEl.classList.add("d-none");
+        tbody.innerHTML = '<tr><td colspan="6" class="text-muted">Select an incident</td></tr>';
+        return;
+    }
+
+    const thisRequestToken = ++incidentDataRequestToken;
+    loadingEl.classList.remove("d-none");
+    emptyEl.classList.add("d-none");
+    tbody.innerHTML = '<tr><td colspan="6" class="text-muted">Loading...</td></tr>';
+
+    try {
+        const payload = await fetchJson(`/incident-context/${flag.id}?window_minutes=15`);
+        if (thisRequestToken !== incidentDataRequestToken) return;
+        renderIncidentDataRows(payload.samples || []);
+    } catch (err) {
+        if (thisRequestToken !== incidentDataRequestToken) return;
+        loadingEl.classList.add("d-none");
+        emptyEl.classList.add("d-none");
+        tbody.innerHTML =
+            '<tr><td colspan="6" class="text-danger">Failed to load incident data</td></tr>';
+    }
+}
+
 function renderFlagDetail() {
     const emptyEl = document.getElementById("flagDetailEmpty");
     const contentEl = document.getElementById("flagDetailContent");
@@ -236,7 +331,6 @@ function renderFlagDetail() {
     const typeEl = document.getElementById("flagDetailType");
     const metricsEl = document.getElementById("flagDetailMetrics");
     const descEl = document.getElementById("flagDetailDescription");
-    const insightsEl = document.getElementById("flagDetailInsights");
 
     if (timeEl) {
         if (flag.timestamp) {
@@ -264,13 +358,7 @@ function renderFlagDetail() {
         descEl.textContent = flag.description || "No additional description.";
     }
 
-    // Keep insights simple in this fallback script.
-    if (insightsEl) {
-        insightsEl.innerHTML = "";
-        const li = document.createElement("li");
-        li.textContent = "Insights are limited in the fallback UI. (Check the main UI assets if you want full insights.)";
-        insightsEl.appendChild(li);
-    }
+    loadIncidentDataForFlag(flag);
 }
 
 function renderFlagsTable(tbodyId, flags) {

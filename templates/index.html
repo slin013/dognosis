@@ -157,14 +157,14 @@
 
         <!-- Flags & Insights tab -->
         <div class="tab-pane fade" id="flags-pane" role="tabpanel" aria-labelledby="flags-tab">
-            <!-- Selected incident detail & insights (top) -->
+            <!-- Selected incident detail + incident data (top) -->
             <div class="row g-4">
                 <div class="col-12">
                     <div class="card h-100">
                         <div class="card-body">
                             <h5 class="card-title mb-3">Incident Details</h5>
                             <div id="flagDetailEmpty" class="text-muted mb-2">
-                                Select an incident to see details and insights.
+                                Select an incident to see details and incident data.
                             </div>
                             <div id="flagDetailContent" class="d-none">
                                 <div class="row g-4">
@@ -187,14 +187,32 @@
                                             <strong>Notes:</strong>
                                             <span id="flagDetailDescription"></span>
                                         </p>
-                                        <h6 class="mb-2">Insights</h6>
-                                        <ul
-                                            class="mb-0"
-                                            id="flagDetailInsights"
-                                            style="max-height: 120px; overflow:auto;"
-                                        >
-                                            <!-- populated dynamically -->
-                                        </ul>
+                                        <h6 class="mb-2">Incident Data (15 min before/after)</h6>
+                                        <div id="flagIncidentDataLoading" class="text-muted small d-none mb-2">
+                                            Loading incident data...
+                                        </div>
+                                        <div id="flagIncidentDataEmpty" class="text-muted small d-none mb-2">
+                                            No sensor samples found in this 30-minute window.
+                                        </div>
+                                        <div class="table-responsive" style="max-height: 220px;">
+                                            <table class="table table-sm table-striped align-middle mb-0">
+                                                <thead class="table-light">
+                                                <tr>
+                                                    <th scope="col">Time</th>
+                                                    <th scope="col">BPM</th>
+                                                    <th scope="col">Temp (°C)</th>
+                                                    <th scope="col">Steps</th>
+                                                    <th scope="col">Limp</th>
+                                                    <th scope="col">Asym</th>
+                                                </tr>
+                                                </thead>
+                                                <tbody id="flagIncidentDataBody">
+                                                <tr>
+                                                    <td colspan="6" class="text-muted">Select an incident</td>
+                                                </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

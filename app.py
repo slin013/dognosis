@@ -190,6 +190,87 @@ def flags_summary():
     return jsonify([dict(zip(col_names, row)) for row in rows])
 
 
+@app.route("/incident-context/<int:flag_id>")
+def incident_context(flag_id):
+    """Full sensor log around one incident (default: ±15 minutes)."""
+    window_minutes_raw = request.args.get("window_minutes", default="15")
+    try:
+        window_minutes = int(window_minutes_raw)
+    except (TypeError, ValueError):
+        return jsonify({"status": "error", "message": "Invalid window_minutes"}), 400
+
+    # Keep bounds sensible for UI usage and DB safety.
+    if window_minutes < 1 or window_minutes > 120:
+        return (
+            jsonify(
+                {
+                    "status": "error",
+                    "message": "window_minutes must be between 1 and 120",
+                }
+            ),
+            400,
+        )
+
+    conn = get_db()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT id, timestamp, flag_type FROM flags WHERE id = ?", (flag_id,))
+    flag_row = cursor.fetchone()
+    if not flag_row:
+        conn.close()
+        return jsonify({"status": "error", "message": "Incident not found"}), 404
+
+    incident_ts = int(float(flag_row[1]))
+    window_seconds = window_minutes * 60
+    start_ts = incident_ts - window_seconds
+    end_ts = incident_ts + window_seconds
+
+    cursor.execute(
+        """
+        SELECT
+            id,
+            timestamp,
+            datetime,
+            bpm,
+            temperature,
+            step_count,
+            limp,
+            asymmetry,
+            high_hr,
+            low_hr,
+            rapid_change,
+            unstable_hr,
+            arrhythmia,
+            latest_step_length,
+            avg_step_length,
+            raw_ir,
+            raw_red,
+            raw_temperature
+        FROM sensor_data
+        WHERE timestamp BETWEEN ? AND ?
+        ORDER BY timestamp ASC
+        """,
+        (start_ts, end_ts),
+    )
+    rows = cursor.fetchall()
+    col_names = [desc[0] for desc in cursor.description]
+    conn.close()
+
+    return jsonify(
+        {
+            "incident": {
+                "id": flag_row[0],
+                "timestamp": incident_ts,
+                "flag_type": flag_row[2],
+            },
+            "window_minutes": window_minutes,
+            "window_start": start_ts,
+            "window_end": end_ts,
+            "samples": [dict(zip(col_names, row)) for row in rows],
+        }
+    )
+
+
 @app.route("/flags-add", methods=["POST"])
 def flags_add():
     """
