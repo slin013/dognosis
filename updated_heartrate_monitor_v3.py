@@ -75,6 +75,10 @@ class HeartRateMonitor:
                 self.bpm = 0
                 self.arrhythmia_flag = False
                 self.bpm_history.clear()
+                self.high_hr_flag = False
+                self.low_hr_flag = False
+                self.rapid_change_flag = False
+                self.unstable_hr_flag = False
 
                 if self.print_result:
                     print("No contact - BPM: 0")
@@ -147,10 +151,10 @@ class HeartRateMonitor:
 
         # Disable flags if no valid BPM
         if self.bpm == 0:
-            high_hr_flag = False
-            low_hr_flag = False
-            rapid_change_flag = False
-            unstable_hr_flag = False
+            self.high_hr_flag = False
+            self.low_hr_flag = False
+            self.rapid_change_flag = False
+            self.unstable_hr_flag = False
 
         # Keep arrhythmia_flag unused but set False
         self.arrhythmia_flag = False
@@ -161,7 +165,7 @@ class HeartRateMonitor:
         if self.print_result:
             print(
                 f"BPM: {self.bpm:.1f} | "
-                f"High:{high_hr_flag} Low:{low_hr_flag} "
-                f"RapidChange:{rapid_change_flag} "
-                f"Unstable:{unstable_hr_flag}"
+                f"High:{self.high_hr_flag} Low:{self.low_hr_flag} "
+                f"RapidChange:{self.rapid_change_flag} "
+                f"Unstable:{self.unstable_hr_flag}"
             )
