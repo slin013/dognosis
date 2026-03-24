@@ -294,6 +294,24 @@
                             <form id="dogProfileForm">
                                 <div class="row g-3">
                                     <div class="col-md-6">
+                                        <label for="dogNameValue" class="form-label">Name</label>
+                                        <input type="text" class="form-control" id="dogNameValue" placeholder="e.g. Bella">
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <label for="dogBreedValue" class="form-label">Breed</label>
+                                        <input type="text" class="form-control" id="dogBreedValue" placeholder="e.g. Labrador Retriever">
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <label for="dogGenderSelect" class="form-label">Gender</label>
+                                        <select class="form-select" id="dogGenderSelect">
+                                            <option value="male" selected>Male</option>
+                                            <option value="female">Female</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="col-md-6">
                                         <label for="dogSizeSelect" class="form-label">Dog size</label>
                                         <select class="form-select" id="dogSizeSelect">
                                             <option value="small">Small</option>
@@ -302,17 +320,13 @@
                                         </select>
                                     </div>
 
-                                    <div class="col-md-3">
-                                        <label for="dogAgeValue" class="form-label">Age</label>
-                                        <input type="number" class="form-control" id="dogAgeValue" min="0" step="1" value="1">
-                                    </div>
-
-                                    <div class="col-md-3">
-                                        <label for="dogAgeUnit" class="form-label">&nbsp;</label>
-                                        <select class="form-select" id="dogAgeUnit">
-                                            <option value="years" selected>Years</option>
-                                            <option value="months">Months</option>
-                                        </select>
+                                    <div class="col-md-6">
+                                        <label for="dogDateOfBirth" class="form-label">Date of birth</label>
+                                        <input type="date" class="form-control" id="dogDateOfBirth">
+                                        <small class="text-muted">Displayed format: DD/MM/YYYY</small>
+                                        <div id="dogDobErrorText" class="text-danger small mt-1" style="display: none;">
+                                            Please enter a valid date of birth that is not in the future.
+                                        </div>
                                     </div>
 
                                     <div class="col-md-6">
@@ -347,6 +361,9 @@
                                     style="display: none;"
                                 >
                                     Saved locally.
+                                </div>
+                                <div id="dogExactAgeText" class="text-muted mt-2 small">
+                                    Exact age: --
                                 </div>
                             </form>
                         </div>
@@ -471,34 +488,106 @@
         const form = document.getElementById("dogProfileForm");
         if (!form) return;
 
+        const nameEl = document.getElementById("dogNameValue");
+        const breedEl = document.getElementById("dogBreedValue");
+        const genderEl = document.getElementById("dogGenderSelect");
         const sizeEl = document.getElementById("dogSizeSelect");
-        const ageValueEl = document.getElementById("dogAgeValue");
-        const ageUnitEl = document.getElementById("dogAgeUnit");
+        const dobEl = document.getElementById("dogDateOfBirth");
+        const dobErrorText = document.getElementById("dogDobErrorText");
         const weightKgEl = document.getElementById("dogWeightKg");
         const activityEl = document.getElementById("dogActivityLevel");
         const saveBtn = document.getElementById("saveDogProfileButton");
         const resetBtn = document.getElementById("resetDogProfileButton");
         const savedText = document.getElementById("dogProfileSavedText");
+        const exactAgeText = document.getElementById("dogExactAgeText");
 
-        if (!sizeEl || !ageValueEl || !ageUnitEl || !weightKgEl || !activityEl || !saveBtn || !resetBtn || !savedText) {
+        if (!nameEl || !breedEl || !genderEl || !sizeEl || !dobEl || !dobErrorText || !weightKgEl || !activityEl || !saveBtn || !resetBtn || !savedText || !exactAgeText) {
             return;
         }
 
         const defaults = {
+            dogName: "",
+            dogBreed: "",
+            dogGender: "male",
             dogSize: "medium",
-            dogAgeValue: 1,
-            dogAgeUnit: "years",
+            dogDateOfBirth: "",
             dogWeightKg: null,
             dogActivityLevel: "medium",
         };
 
+        function parseDobAsLocalMidnight(dobStr) {
+            if (!dobStr) return null;
+            const parts = String(dobStr).split("-");
+            if (parts.length !== 3) return null;
+            const year = Number(parts[0]);
+            const month = Number(parts[1]);
+            const day = Number(parts[2]);
+            if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) return null;
+            const d = new Date(year, month - 1, day);
+            if (
+                d.getFullYear() !== year ||
+                d.getMonth() !== month - 1 ||
+                d.getDate() !== day
+            ) {
+                return null;
+            }
+            return d;
+        }
+
+        function calculateExactAge(dobDate, referenceDate) {
+            if (!dobDate || !referenceDate) return null;
+            if (dobDate > referenceDate) return null;
+
+            let years = referenceDate.getFullYear() - dobDate.getFullYear();
+            let months = referenceDate.getMonth() - dobDate.getMonth();
+            let days = referenceDate.getDate() - dobDate.getDate();
+
+            if (days < 0) {
+                months -= 1;
+                const lastDayPrevMonth = new Date(
+                    referenceDate.getFullYear(),
+                    referenceDate.getMonth(),
+                    0
+                ).getDate();
+                days += lastDayPrevMonth;
+            }
+
+            if (months < 0) {
+                years -= 1;
+                months += 12;
+            }
+
+            if (years < 0) return null;
+            return { years, months, days };
+        }
+
+        function setExactAgeText(dobStr) {
+            const dobDate = parseDobAsLocalMidnight(dobStr);
+            if (!dobDate) {
+                exactAgeText.textContent = "Exact age: --";
+                return;
+            }
+            const today = new Date();
+            const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+            const age = calculateExactAge(dobDate, todayMidnight);
+            if (!age) {
+                exactAgeText.textContent = "Exact age: --";
+                return;
+            }
+            exactAgeText.textContent = `Exact age: ${age.years} years, ${age.months} months, ${age.days} days`;
+        }
+
         function applyProfile(p) {
             const profile = p || defaults;
+            nameEl.value = profile.dogName || defaults.dogName;
+            breedEl.value = profile.dogBreed || defaults.dogBreed;
+            genderEl.value = profile.dogGender || defaults.dogGender;
             sizeEl.value = profile.dogSize || defaults.dogSize;
-            ageValueEl.value = profile.dogAgeValue != null ? profile.dogAgeValue : defaults.dogAgeValue;
-            ageUnitEl.value = profile.dogAgeUnit || defaults.dogAgeUnit;
+            dobEl.value = profile.dogDateOfBirth || defaults.dogDateOfBirth;
             weightKgEl.value = profile.dogWeightKg != null ? profile.dogWeightKg : "";
             activityEl.value = profile.dogActivityLevel || defaults.dogActivityLevel;
+            dobErrorText.style.display = "none";
+            setExactAgeText(dobEl.value);
         }
 
         function loadProfile() {
@@ -519,9 +608,11 @@
             const dogWeightKgRaw = weightKgEl.value;
             const weightKg = dogWeightKgRaw === "" ? null : Number(dogWeightKgRaw);
             return {
+                dogName: String(nameEl.value || "").trim(),
+                dogBreed: String(breedEl.value || "").trim(),
+                dogGender: String(genderEl.value),
                 dogSize: String(sizeEl.value),
-                dogAgeValue: Number(ageValueEl.value),
-                dogAgeUnit: String(ageUnitEl.value),
+                dogDateOfBirth: String(dobEl.value || ""),
                 dogWeightKg: Number.isFinite(weightKg) ? weightKg : null,
                 dogActivityLevel: String(activityEl.value),
             };
@@ -535,9 +626,19 @@
         }
 
         saveBtn.addEventListener("click", () => {
+            const dobDate = parseDobAsLocalMidnight(dobEl.value);
+            const today = new Date();
+            const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+            if (!dobDate || dobDate > todayMidnight) {
+                dobErrorText.style.display = "block";
+                return;
+            }
+            dobErrorText.style.display = "none";
+
             const profile = gatherProfile();
             try {
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
+                setExactAgeText(profile.dogDateOfBirth);
                 showSaved();
             } catch (e) {
                 console.error("Failed to save dog profile", e);
@@ -553,6 +654,11 @@
             }
             applyProfile(null);
             showSaved();
+        });
+
+        dobEl.addEventListener("change", () => {
+            dobErrorText.style.display = "none";
+            setExactAgeText(dobEl.value);
         });
 
         loadProfile();
