@@ -61,6 +61,7 @@
         <!-- Overview tab: existing 3‑column layout -->
         <div class="tab-pane fade show active" id="overview-pane" role="tabpanel" aria-labelledby="overview-tab">
             <h5 class="mb-3" id="statusDogHeader">Dog's Current Status:</h5>
+            <div class="text-muted small mb-3" id="statusDogAgeLine"></div>
             <div class="row g-4 align-items-stretch">
                 <!-- Left: at‑a‑glance vitals -->
                 <div class="col-lg-3">
@@ -601,16 +602,29 @@
             }, 2000);
         }
 
-        function renderStatusDogHeader(name) {
+        function renderStatusDogHeader(name, dobStr) {
             const headerEl = document.getElementById("statusDogHeader");
-            if (!headerEl) return;
+            const ageLineEl = document.getElementById("statusDogAgeLine");
+            if (!headerEl || !ageLineEl) return;
             const safeName = String(name || "").trim();
             if (!safeName) {
                 headerEl.textContent = "Dog's Current Status:";
+                ageLineEl.textContent = "";
                 return;
             }
             const suffix = safeName.endsWith("s") || safeName.endsWith("S") ? "'" : "'s";
             headerEl.textContent = `${safeName}${suffix} Current Status:`;
+
+            const dobDate = parseDobAsLocalMidnight(dobStr);
+            const today = new Date();
+            const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+            const age = calculateExactAge(dobDate, todayMidnight);
+            if (!age) {
+                ageLineEl.textContent = "";
+                return;
+            }
+            ageLineEl.textContent =
+                `${safeName} is ${age.years} years ${age.months} months and ${age.days} days old today!`;
         }
 
         saveBtn.addEventListener("click", () => {
@@ -627,7 +641,7 @@
             try {
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
                 setExactAgeText(profile.dogDateOfBirth);
-                renderStatusDogHeader(profile.dogName);
+                renderStatusDogHeader(profile.dogName, profile.dogDateOfBirth);
                 showSaved();
             } catch (e) {
                 console.error("Failed to save dog profile", e);
@@ -642,7 +656,7 @@
                 // ignore
             }
             applyProfile(null);
-            renderStatusDogHeader("");
+            renderStatusDogHeader("", "");
             showSaved();
         });
 
@@ -654,9 +668,9 @@
         loadProfile();
         try {
             const profile = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
-            renderStatusDogHeader(profile.dogName || "");
+            renderStatusDogHeader(profile.dogName || "", profile.dogDateOfBirth || "");
         } catch (e) {
-            renderStatusDogHeader("");
+            renderStatusDogHeader("", "");
         }
     })();
 </script>
