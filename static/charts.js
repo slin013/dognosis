@@ -294,6 +294,7 @@ function initChart() {
 
 function mapFlagTypeToLabel(flagType) {
     if (!flagType) return "Flag";
+    if (flagType === "Emotional Distress") return "Emotional distress";
     return String(flagType).replace(/_/g, " ");
 }
 

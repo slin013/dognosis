@@ -3,6 +3,7 @@
 import time
 import sqlite3
 import threading
+from collections import deque
 from datetime import datetime
 
 from dognosis_db import DB_PATH as DB_NAME, ensure_schema
@@ -20,6 +21,14 @@ ASYMMETRY_THRESHOLD = 3.0
 HR_COOLDOWN = 300
 LIMP_COOLDOWN = 300
 TEMP_COOLDOWN = 300
+
+# Emotional Distress: elevated avg HR over a window with low step activity (placeholders — tune with data)
+EMOTIONAL_DISTRESS_WINDOW_SEC = 90
+EMOTIONAL_DISTRESS_MIN_AVG_BPM = 130
+EMOTIONAL_DISTRESS_MAX_STEPS_PER_MIN = 10
+EMOTIONAL_DISTRESS_MIN_VALID_BPM_FRACTION = 0.65
+EMOTIONAL_DISTRESS_MIN_WINDOW_SAMPLES = 45
+EMOTIONAL_DISTRESS_COOLDOWN = 600
 
 # -------------------------
 # Shared Data
@@ -46,10 +55,13 @@ last_flag_times = {
     "Low HR": 0,
     "Rapid HR Change": 0,
     "Unstable HR": 0,
+    "Emotional Distress": 0,
     "Limp": 0,
     "High Temperature": 0,
-    "Low Temperature": 0
+    "Low Temperature": 0,
 }
+
+emotional_distress_history = deque()
 
 # -------------------------
 # Sensor Manager Thread
@@ -169,6 +181,13 @@ try:
             limp = sensor_data["limp"]
             rawTemp = sensor_data["raw_temperature"]
 
+        emotional_distress_history.append((timestamp, bpm, steps))
+        while (
+            emotional_distress_history
+            and emotional_distress_history[0][0] < timestamp - EMOTIONAL_DISTRESS_WINDOW_SEC
+        ):
+            emotional_distress_history.popleft()
+
         rawIR = None
         rawRed = None
 
@@ -229,6 +248,31 @@ try:
         if unstable_hr and timestamp - last_flag_times["Unstable HR"] > HR_COOLDOWN:
             insert_flag("Unstable HR", "Heart rate unstable over time.")
             last_flag_times["Unstable HR"] = timestamp
+
+        # Emotional Distress: sustained elevated HR with low movement (does not replace Rapid HR Change)
+        if len(emotional_distress_history) >= EMOTIONAL_DISTRESS_MIN_WINDOW_SAMPLES:
+            pts = list(emotional_distress_history)
+            bpms = [p[1] for p in pts if p[1] is not None and p[1] > 0]
+            if len(bpms) >= len(pts) * EMOTIONAL_DISTRESS_MIN_VALID_BPM_FRACTION:
+                avg_bpm = sum(bpms) / len(bpms)
+                step_pts = [(p[0], p[2]) for p in pts if p[2] is not None]
+                if len(step_pts) >= 2:
+                    t0, s0 = step_pts[0]
+                    t1, s1 = step_pts[-1]
+                    dur = t1 - t0
+                    if dur > 5:
+                        steps_per_min = max(0.0, (float(s1) - float(s0)) / dur) * 60.0
+                        if (
+                            avg_bpm >= EMOTIONAL_DISTRESS_MIN_AVG_BPM
+                            and steps_per_min <= EMOTIONAL_DISTRESS_MAX_STEPS_PER_MIN
+                            and timestamp - last_flag_times["Emotional Distress"] > EMOTIONAL_DISTRESS_COOLDOWN
+                        ):
+                            insert_flag(
+                                "Emotional Distress",
+                                f"Elevated avg BPM ({avg_bpm:.0f}) over {EMOTIONAL_DISTRESS_WINDOW_SEC:.0f}s "
+                                f"with low activity (~{steps_per_min:.0f} steps/min).",
+                            )
+                            last_flag_times["Emotional Distress"] = timestamp
 
         # -------------------------
         # EXISTING FLAGS

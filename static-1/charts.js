@@ -528,6 +528,8 @@ function mapFlagTypeToLabel(flagType) {
             return "Underheating";
         case "limp":
             return "Limp / gait issue";
+        case "Emotional Distress":
+            return "Emotional distress";
         default:
             return flagType.replace(/_/g, " ");
     }
