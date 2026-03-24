@@ -145,6 +145,89 @@ const ACTIVITY_HIGH_STEPS_PER_MIN = 35;
 const TEMP_F_LOW_MAX = 65;
 const TEMP_F_HIGH_MIN = 104;
 
+// Dog profile → predicted HR (must match templates/index.html dog profile script)
+const DOG_PROFILE_STORAGE_KEY = "dogProfile";
+const HR_PRED_MEAN = 114;
+const HR_PRED_MEAN_WEIGHT_KG = 19.3;
+const HR_PRED_WEIGHT_SLOPE = -0.21;
+const HR_PRED_AGE_PER_DAY = 0.002;
+const HR_STATUS_LOW_BELOW_PRED = 15;
+const HR_STATUS_HIGH_ABOVE_PRED = 35;
+
+const HR_PRED_BREED_COEFFS = {
+    border_collie: -7.777,
+    ckcs: 13.822,
+    golden_retriever: -6.152,
+    labrador_retriever: -5.356,
+    springer_spaniel: -6.735,
+    staffordshire_bull_terrier: 5.556,
+    west_highland_white_terrier: -6.0,
+    yorkshire_terrier: 14.178,
+};
+
+function parseDobAsLocalMidnightDog(dobStr) {
+    if (!dobStr) return null;
+    const parts = String(dobStr).split("-");
+    if (parts.length !== 3) return null;
+    const year = Number(parts[0]);
+    const month = Number(parts[1]);
+    const day = Number(parts[2]);
+    if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) return null;
+    const d = new Date(year, month - 1, day);
+    if (d.getFullYear() !== year || d.getMonth() !== month - 1 || d.getDate() !== day) return null;
+    return d;
+}
+
+function ageDaysFromDobStrDog(dobStr) {
+    const dobDate = parseDobAsLocalMidnightDog(dobStr);
+    if (!dobDate) return null;
+    const today = new Date();
+    const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    if (dobDate > todayMidnight) return null;
+    return Math.floor((todayMidnight - dobDate) / 86400000);
+}
+
+function migrateLegacyDogProfile(profile) {
+    if (!profile || typeof profile !== "object") return profile;
+    if (!profile.dogBreedSelect && profile.dogBreed) {
+        profile.dogBreedSelect = "other";
+        profile.dogBreedOther = String(profile.dogBreed || "").trim();
+        delete profile.dogBreed;
+    }
+    return profile;
+}
+
+function getDogProfileForHr() {
+    try {
+        const raw = localStorage.getItem(DOG_PROFILE_STORAGE_KEY);
+        if (!raw) return null;
+        return migrateLegacyDogProfile(JSON.parse(raw));
+    } catch (e) {
+        return null;
+    }
+}
+
+function computePredictedHrFromProfile(profile) {
+    if (!profile) return null;
+    const w = profile.dogWeightKg;
+    if (w == null || !Number.isFinite(Number(w)) || Number(w) <= 0) return null;
+
+    let hr = HR_PRED_MEAN + HR_PRED_WEIGHT_SLOPE * (Number(w) - HR_PRED_MEAN_WEIGHT_KG);
+
+    const ageDays = ageDaysFromDobStrDog(profile.dogDateOfBirth);
+    if (ageDays != null && ageDays >= 0) {
+        hr += HR_PRED_AGE_PER_DAY * ageDays;
+    }
+
+    const sel = profile.dogBreedSelect;
+    if (sel && sel !== "other" && Object.prototype.hasOwnProperty.call(HR_PRED_BREED_COEFFS, sel)) {
+        hr += HR_PRED_BREED_COEFFS[sel];
+    }
+
+    hr = Math.max(45, Math.min(220, hr));
+    return Math.round(hr * 10) / 10;
+}
+
 function setConnectionStatus(isOnline) {
     const badge = document.getElementById("connectionStatus");
     if (!badge) return;
@@ -185,15 +268,33 @@ function updateHeartRateCard(latestSample) {
     const rounded = Math.round(bpm);
     valueEl.textContent = `${rounded} bpm`;
 
-    // Simple, placeholder thresholds – adjust based on vet guidance
+    const profile = getDogProfileForHr();
+    const predicted = computePredictedHrFromProfile(profile);
+
     let statusText = "Normal";
     let badgeClass = "badge bg-success";
-    if (rounded < 50) {
-        statusText = "Low";
-        badgeClass = "badge bg-warning text-dark";
-    } else if (rounded > 140) {
-        statusText = "High";
-        badgeClass = "badge bg-danger";
+
+    if (predicted != null) {
+        const lowBelow = predicted - HR_STATUS_LOW_BELOW_PRED;
+        const highAbove = predicted + HR_STATUS_HIGH_ABOVE_PRED;
+        if (rounded < lowBelow) {
+            statusText = "Low";
+            badgeClass = "badge bg-warning text-dark";
+        } else if (rounded > highAbove) {
+            statusText = "High";
+            badgeClass = "badge bg-danger";
+        } else {
+            statusText = "Normal";
+            badgeClass = "badge bg-success";
+        }
+    } else {
+        if (rounded < 50) {
+            statusText = "Low";
+            badgeClass = "badge bg-warning text-dark";
+        } else if (rounded > 140) {
+            statusText = "High";
+            badgeClass = "badge bg-danger";
+        }
     }
 
     statusEl.textContent = statusText;
