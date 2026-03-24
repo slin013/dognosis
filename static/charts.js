@@ -18,6 +18,15 @@ let hrChart = null;
 let stepsChart = null;
 let tempChart = null;
 let currentTimeWindowSeconds = 1800; // default 30 min
+
+// Activity: rolling window for steps/min (placeholder thresholds — tune later)
+const ACTIVITY_ROLLING_WINDOW_SEC = 90; // ~1.5 min (try 60–120)
+const ACTIVITY_LOW_STEPS_PER_MIN = 8;
+const ACTIVITY_HIGH_STEPS_PER_MIN = 35;
+
+// Temperature (°F) — matches logger display
+const TEMP_F_LOW_MAX = 65;
+const TEMP_F_HIGH_MIN = 104;
 // Flags & Insights state for the fallback UI
 const dashboardState = {
     deviceFlags: [],
@@ -79,30 +88,113 @@ function updateHeartRateCard(latestSample) {
     statusEl.className = badgeClass;
 }
 
-function updateActivityTempCards(latestSample) {
+function computeStepsPerMinute(samples, windowSec) {
+    if (!Array.isArray(samples) || samples.length === 0) return null;
+    const nowSec = Math.floor(Date.now() / 1000);
+    const cutoff = nowSec - windowSec;
+    const pts = samples
+        .map((s) => ({
+            ts: s.timestamp ?? s[0],
+            steps: s.step_count ?? s.steps ?? s[4],
+        }))
+        .filter(
+            (p) =>
+                p.ts != null &&
+                p.steps != null &&
+                Number.isFinite(Number(p.steps)) &&
+                p.ts >= cutoff
+        )
+        .sort((a, b) => a.ts - b.ts);
+    if (pts.length < 2) return null;
+    const first = pts[0];
+    const last = pts[pts.length - 1];
+    const delta = Number(last.steps) - Number(first.steps);
+    const dur = last.ts - first.ts;
+    if (dur <= 0) return null;
+    return Math.max(0, (Math.max(0, delta) / dur) * 60);
+}
+
+function updateActivityTempCards(latestSample, allSamples) {
     const actEl = document.getElementById("activityCardValue");
+    const actSub = document.getElementById("activityCardSubtext");
     const actStatus = document.getElementById("activityCardStatus");
     const tempEl = document.getElementById("tempCardValue");
     const tempStatus = document.getElementById("tempCardStatus");
 
     if (!latestSample) {
         if (actEl) actEl.textContent = "--";
-        if (tempEl) tempEl.textContent = "--";
+        if (actSub) actSub.textContent = "";
+        if (actStatus) {
+            actStatus.textContent = "No data";
+            actStatus.className = "badge bg-secondary mb-3";
+        }
+        if (tempEl) tempEl.textContent = "-- °F";
+        if (tempStatus) {
+            tempStatus.textContent = "No data";
+            tempStatus.className = "badge bg-secondary mb-3";
+        }
         return;
     }
 
     const steps = latestSample.step_count ?? latestSample[4];
-    if (actEl) actEl.textContent = steps != null ? String(steps) : "--";
-    if (actStatus) actStatus.textContent = "Total steps";
+    const stepsPerMin = computeStepsPerMinute(allSamples, ACTIVITY_ROLLING_WINDOW_SEC);
+
+    if (actEl) {
+        if (stepsPerMin != null) {
+            actEl.textContent = `${Math.round(stepsPerMin)} steps/min`;
+        } else {
+            actEl.textContent = steps != null ? `${steps} steps (total)` : "--";
+        }
+    }
+    if (actSub) {
+        actSub.textContent =
+            stepsPerMin != null && steps != null
+                ? `Total steps: ${steps}`
+                : stepsPerMin == null && steps != null
+                  ? "Need a bit more data for steps/min…"
+                  : "";
+    }
+    if (actStatus) {
+        if (stepsPerMin == null) {
+            actStatus.textContent = "Collecting";
+            actStatus.className = "badge bg-secondary mb-3";
+        } else if (stepsPerMin < ACTIVITY_LOW_STEPS_PER_MIN) {
+            actStatus.textContent = "Low";
+            actStatus.className = "badge bg-warning text-dark mb-3";
+        } else if (stepsPerMin > ACTIVITY_HIGH_STEPS_PER_MIN) {
+            actStatus.textContent = "High";
+            actStatus.className = "badge bg-danger mb-3";
+        } else {
+            actStatus.textContent = "Normal";
+            actStatus.className = "badge bg-success mb-3";
+        }
+    }
 
     const t = latestSample.temperature ?? latestSample[2];
     if (tempEl) {
         if (t != null && !Number.isNaN(Number(t))) {
             const n = Number(t);
-            tempEl.textContent = `${n.toFixed(1)}°`;
-            if (tempStatus) tempStatus.textContent = "Temp";
+            tempEl.textContent = `${n.toFixed(1)} °F`;
         } else {
-            tempEl.textContent = "--";
+            tempEl.textContent = "-- °F";
+        }
+    }
+    if (tempStatus) {
+        if (t == null || Number.isNaN(Number(t))) {
+            tempStatus.textContent = "No data";
+            tempStatus.className = "badge bg-secondary mb-3";
+        } else {
+            const n = Number(t);
+            if (n < TEMP_F_LOW_MAX) {
+                tempStatus.textContent = "Low";
+                tempStatus.className = "badge bg-warning text-dark mb-3";
+            } else if (n > TEMP_F_HIGH_MIN) {
+                tempStatus.textContent = "High";
+                tempStatus.className = "badge bg-danger mb-3";
+            } else {
+                tempStatus.textContent = "Normal";
+                tempStatus.className = "badge bg-success mb-3";
+            }
         }
     }
 }
@@ -665,7 +757,7 @@ async function updateChart() {
             setConnectionStatus(true);
             setLastUpdated();
             updateHeartRateCard(null);
-            updateActivityTempCards(null);
+            updateActivityTempCards(null, null);
             return;
         }
 
@@ -708,7 +800,7 @@ async function updateChart() {
 
         const latestSample = data[0];
         updateHeartRateCard(latestSample);
-        updateActivityTempCards(latestSample);
+        updateActivityTempCards(latestSample, data);
 
         setConnectionStatus(true);
         setLastUpdated();
