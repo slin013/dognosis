@@ -116,14 +116,12 @@ function computeStepsPerMinute(samples, windowSec) {
 
 function updateActivityTempCards(latestSample, allSamples) {
     const actEl = document.getElementById("activityCardValue");
-    const actSub = document.getElementById("activityCardSubtext");
     const actStatus = document.getElementById("activityCardStatus");
     const tempEl = document.getElementById("tempCardValue");
     const tempStatus = document.getElementById("tempCardStatus");
 
     if (!latestSample) {
         if (actEl) actEl.textContent = "--";
-        if (actSub) actSub.textContent = "";
         if (actStatus) {
             actStatus.textContent = "No data";
             actStatus.className = "badge bg-secondary mb-3";
@@ -137,35 +135,24 @@ function updateActivityTempCards(latestSample, allSamples) {
     }
 
     const steps = latestSample.step_count ?? latestSample[4];
+    // steps/min used only for badge classification (UI shows total steps only)
     const stepsPerMin = computeStepsPerMinute(allSamples, ACTIVITY_ROLLING_WINDOW_SEC);
 
     if (actEl) {
-        if (stepsPerMin != null) {
-            actEl.textContent = `${Math.round(stepsPerMin)} steps/min`;
-        } else {
-            actEl.textContent = steps != null ? `${steps} steps (total)` : "--";
-        }
-    }
-    if (actSub) {
-        actSub.textContent =
-            stepsPerMin != null && steps != null
-                ? `Total steps: ${steps}`
-                : stepsPerMin == null && steps != null
-                  ? "Need a bit more data for steps/min…"
-                  : "";
+        actEl.textContent = steps != null ? String(steps) : "--";
     }
     if (actStatus) {
         if (stepsPerMin == null) {
             actStatus.textContent = "Collecting";
             actStatus.className = "badge bg-secondary mb-3";
         } else if (stepsPerMin < ACTIVITY_LOW_STEPS_PER_MIN) {
-            actStatus.textContent = "Low";
+            actStatus.textContent = "Resting";
             actStatus.className = "badge bg-warning text-dark mb-3";
         } else if (stepsPerMin > ACTIVITY_HIGH_STEPS_PER_MIN) {
-            actStatus.textContent = "High";
+            actStatus.textContent = "High activity";
             actStatus.className = "badge bg-danger mb-3";
         } else {
-            actStatus.textContent = "Normal";
+            actStatus.textContent = "Moderate activity";
             actStatus.className = "badge bg-success mb-3";
         }
     }
