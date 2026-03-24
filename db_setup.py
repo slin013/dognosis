@@ -69,7 +69,12 @@ def initialize_database():
         breed TEXT,
         age INTEGER,
         weight REAL,
-        size TEXT
+        size TEXT,
+        date_of_birth TEXT,
+        breed_code TEXT,
+        breed_other TEXT,
+        gender TEXT,
+        updated_at TEXT
     );
     """)
 

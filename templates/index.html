@@ -492,7 +492,7 @@
 <!-- App scripts -->
 <script src="/static/charts.js"></script>
 
-<!-- Dog profile UI (client-side only for now) -->
+<!-- Dog profile: GET/POST /dog-profile + localStorage mirror for charts -->
 <script>
     (function () {
         const STORAGE_KEY = "dogProfile";
@@ -730,18 +730,40 @@
             }
         }
 
-        function loadProfile() {
+        async function loadProfile() {
+            try {
+                const res = await fetch("/dog-profile", { cache: "no-store" });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data && typeof data === "object") {
+                        const migrated = migrateLegacyProfile(data);
+                        applyProfile(migrated);
+                        try {
+                            localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
+                        } catch (e) {
+                            /* ignore */
+                        }
+                        renderStatusDogHeader(migrated.dogName || "", migrated.dogDateOfBirth || "");
+                        return;
+                    }
+                }
+            } catch (e) {
+                console.warn("Dog profile GET failed; using local storage", e);
+            }
             try {
                 const raw = localStorage.getItem(STORAGE_KEY);
                 if (!raw) {
                     applyProfile(null);
+                    renderStatusDogHeader("", "");
                     return;
                 }
                 const parsed = migrateLegacyProfile(JSON.parse(raw));
                 applyProfile(parsed);
+                renderStatusDogHeader(parsed.dogName || "", parsed.dogDateOfBirth || "");
             } catch (e) {
                 console.warn("Failed to load dog profile from localStorage", e);
                 applyProfile(null);
+                renderStatusDogHeader("", "");
             }
         }
 
@@ -793,7 +815,7 @@
                 `${safeName} is ${age.years} years ${age.months} months and ${age.days} days old today!`;
         }
 
-        saveBtn.addEventListener("click", () => {
+        saveBtn.addEventListener("click", async () => {
             const dobDate = parseDobAsLocalMidnight(dobEl.value);
             const today = new Date();
             const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
@@ -805,6 +827,12 @@
 
             const profile = gatherProfile();
             try {
+                const res = await fetch("/dog-profile", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(profile),
+                });
+                if (!res.ok) throw new Error("Server rejected save");
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
                 setExactAgeText(profile.dogDateOfBirth);
                 renderStatusDogHeader(profile.dogName, profile.dogDateOfBirth);
@@ -812,11 +840,20 @@
                 showSaved();
             } catch (e) {
                 console.error("Failed to save dog profile", e);
-                alert("Failed to save settings locally.");
+                alert("Failed to save dog profile to the server.");
             }
         });
 
-        resetBtn.addEventListener("click", () => {
+        resetBtn.addEventListener("click", async () => {
+            try {
+                await fetch("/dog-profile", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(defaults),
+                });
+            } catch (e) {
+                console.warn("Dog profile reset POST failed", e);
+            }
             try {
                 localStorage.removeItem(STORAGE_KEY);
             } catch (e) {
@@ -847,12 +884,6 @@
         });
 
         loadProfile();
-        try {
-            const profile = migrateLegacyProfile(JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"));
-            renderStatusDogHeader(profile.dogName || "", profile.dogDateOfBirth || "");
-        } catch (e) {
-            renderStatusDogHeader("", "");
-        }
     })();
 </script>
 

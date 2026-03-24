@@ -1,11 +1,43 @@
 # Flask UI — reads dog_harness.db (same file as sensor logging scripts)
 
 import os
+from datetime import datetime, timezone
+from typing import Optional
 
 from flask import Flask, jsonify, render_template, request
 import sqlite3
 
 from dognosis_db import DB_PATH, ensure_schema
+from dog_profile_hr import age_days_from_dob
+
+BREED_LABELS = {
+    "border_collie": "Border Collie",
+    "ckcs": "Cavalier King Charles Spaniel (CKCS)",
+    "golden_retriever": "Golden Retriever",
+    "labrador_retriever": "Labrador Retriever",
+    "springer_spaniel": "Springer Spaniel",
+    "staffordshire_bull_terrier": "Staffordshire Bull Terrier",
+    "west_highland_white_terrier": "West Highland White Terrier",
+    "yorkshire_terrier": "Yorkshire Terrier",
+    "other": "Other (not used in HR estimate)",
+}
+
+
+def _breed_display(breed_code: Optional[str], breed_other: Optional[str]) -> str:
+    code = (breed_code or "").strip()
+    other = (breed_other or "").strip()
+    if code == "other" and other:
+        return other
+    if code == "other":
+        return "Other"
+    return BREED_LABELS.get(code, code or "")
+
+
+def _age_years_from_dob(dob_str: Optional[str]) -> Optional[int]:
+    ad = age_days_from_dob(dob_str)
+    if ad is None:
+        return None
+    return int(ad // 365.25)
 
 _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 _TEMPLATE_DIR = os.path.join(_BASE_DIR, "templates-1")
@@ -395,6 +427,96 @@ def flags_delete():
     if deleted == 0:
         return jsonify({"status": "error", "message": "Flag not found or not user-generated"}), 404
 
+    return jsonify({"status": "ok"}), 200
+
+
+@app.route("/dog-profile", methods=["GET", "POST"])
+def dog_profile():
+    """
+    Single-row dog profile (id=1). JSON uses same keys as the dashboard localStorage shape.
+    """
+    conn = get_db()
+    cursor = conn.cursor()
+
+    if request.method == "GET":
+        cursor.execute(
+            """
+            SELECT name, weight, date_of_birth, breed_code, breed_other, gender
+            FROM dog_profile WHERE id = 1
+            """
+        )
+        row = cursor.fetchone()
+        conn.close()
+        if not row:
+            return jsonify(
+                {
+                    "dogName": "",
+                    "dogWeightKg": None,
+                    "dogDateOfBirth": "",
+                    "dogBreedSelect": "",
+                    "dogBreedOther": "",
+                    "dogGender": "male",
+                }
+            )
+        name, weight, dob, breed_code, breed_other, gender = row
+        return jsonify(
+            {
+                "dogName": name or "",
+                "dogWeightKg": weight,
+                "dogDateOfBirth": dob or "",
+                "dogBreedSelect": breed_code or "",
+                "dogBreedOther": breed_other or "",
+                "dogGender": gender or "male",
+            }
+        )
+
+    payload = request.get_json(force=True, silent=True) or {}
+    dog_name = str(payload.get("dogName") or "").strip()
+    dog_weight = payload.get("dogWeightKg")
+    dog_dob = str(payload.get("dogDateOfBirth") or "").strip()
+    breed_code = str(payload.get("dogBreedSelect") or "").strip()
+    breed_other = str(payload.get("dogBreedOther") or "").strip()
+    gender = str(payload.get("dogGender") or "male").strip() or "male"
+
+    weight_val = None
+    if dog_weight is not None and dog_weight != "":
+        try:
+            weight_val = float(dog_weight)
+        except (TypeError, ValueError):
+            weight_val = None
+
+    breed_display = _breed_display(breed_code, breed_other)
+    age_years = _age_years_from_dob(dog_dob if dog_dob else None)
+    updated = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    cursor.execute(
+        """
+        UPDATE dog_profile SET
+            name = ?,
+            breed = ?,
+            age = ?,
+            weight = ?,
+            date_of_birth = ?,
+            breed_code = ?,
+            breed_other = ?,
+            gender = ?,
+            updated_at = ?
+        WHERE id = 1
+        """,
+        (
+            dog_name,
+            breed_display,
+            age_years,
+            weight_val,
+            dog_dob or None,
+            breed_code or None,
+            breed_other or None,
+            gender,
+            updated,
+        ),
+    )
+    conn.commit()
+    conn.close()
     return jsonify({"status": "ok"}), 200
 
 

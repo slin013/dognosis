@@ -7,6 +7,13 @@ from collections import deque
 from datetime import datetime
 
 from dognosis_db import DB_PATH as DB_NAME, ensure_schema
+from dog_profile_hr import (
+    HR_FLAG_HIGH_ABOVE_PRED,
+    HR_FLAG_LOW_BELOW_PRED,
+    compute_predicted_hr,
+    emotional_distress_avg_threshold,
+    row_tuple_to_hr_dict,
+)
 from updated_heartrate_monitor_v3 import HeartRateMonitor
 from dual_IMU_step_counter_2 import DualIMUStepAnalyzer
 
@@ -24,7 +31,6 @@ TEMP_COOLDOWN = 300
 
 # Emotional Distress: elevated avg HR over a window with low step activity (placeholders — tune with data)
 EMOTIONAL_DISTRESS_WINDOW_SEC = 90
-EMOTIONAL_DISTRESS_MIN_AVG_BPM = 130
 EMOTIONAL_DISTRESS_MAX_STEPS_PER_MIN = 10
 EMOTIONAL_DISTRESS_MIN_VALID_BPM_FRACTION = 0.65
 EMOTIONAL_DISTRESS_MIN_WINDOW_SAMPLES = 45
@@ -181,6 +187,21 @@ try:
             limp = sensor_data["limp"]
             rawTemp = sensor_data["raw_temperature"]
 
+        cursor.execute(
+            "SELECT weight, date_of_birth, breed_code FROM dog_profile WHERE id = 1"
+        )
+        prof_row = cursor.fetchone()
+        prof_cols = [d[0] for d in cursor.description] if cursor.description else []
+        if prof_row:
+            pred_hr = compute_predicted_hr(row_tuple_to_hr_dict(prof_row, prof_cols))
+        else:
+            pred_hr = None
+
+        if pred_hr is not None and bpm is not None and bpm > 0:
+            high_hr = int(bpm > pred_hr + HR_FLAG_HIGH_ABOVE_PRED)
+            low_hr = int(bpm < pred_hr - HR_FLAG_LOW_BELOW_PRED)
+
+        emotional_distress_min_avg = emotional_distress_avg_threshold(pred_hr)
         emotional_distress_history.append((timestamp, bpm, steps))
         while (
             emotional_distress_history
@@ -234,11 +255,17 @@ try:
         # HR FLAGS (NEW)
         # -------------------------
         if high_hr and timestamp - last_flag_times["High HR"] > HR_COOLDOWN:
-            insert_flag("High HR", f"BPM elevated: {bpm:.1f}")
+            if pred_hr is not None and bpm is not None:
+                insert_flag("High HR", f"BPM elevated: {bpm:.1f} (pred {pred_hr:.1f})")
+            else:
+                insert_flag("High HR", f"BPM elevated: {bpm:.1f}")
             last_flag_times["High HR"] = timestamp
 
         if low_hr and timestamp - last_flag_times["Low HR"] > HR_COOLDOWN:
-            insert_flag("Low HR", f"BPM low: {bpm:.1f}")
+            if pred_hr is not None and bpm is not None:
+                insert_flag("Low HR", f"BPM low: {bpm:.1f} (pred {pred_hr:.1f})")
+            else:
+                insert_flag("Low HR", f"BPM low: {bpm:.1f}")
             last_flag_times["Low HR"] = timestamp
 
         if rapid_change and timestamp - last_flag_times["Rapid HR Change"] > HR_COOLDOWN:
@@ -263,13 +290,14 @@ try:
                     if dur > 5:
                         steps_per_min = max(0.0, (float(s1) - float(s0)) / dur) * 60.0
                         if (
-                            avg_bpm >= EMOTIONAL_DISTRESS_MIN_AVG_BPM
+                            avg_bpm >= emotional_distress_min_avg
                             and steps_per_min <= EMOTIONAL_DISTRESS_MAX_STEPS_PER_MIN
                             and timestamp - last_flag_times["Emotional Distress"] > EMOTIONAL_DISTRESS_COOLDOWN
                         ):
                             insert_flag(
                                 "Emotional Distress",
-                                f"Elevated avg BPM ({avg_bpm:.0f}) over {EMOTIONAL_DISTRESS_WINDOW_SEC:.0f}s "
+                                f"Elevated avg BPM ({avg_bpm:.0f}) vs threshold {emotional_distress_min_avg:.0f} "
+                                f"over {EMOTIONAL_DISTRESS_WINDOW_SEC:.0f}s "
                                 f"with low activity (~{steps_per_min:.0f} steps/min).",
                             )
                             last_flag_times["Emotional Distress"] = timestamp
