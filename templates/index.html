@@ -370,7 +370,7 @@
 
                                 <div id="dogProfileHrSummary" class="border rounded p-3 mt-3 bg-body-secondary" style="display: none;">
                                     <h6 class="mb-2">Personalized heart rate (from profile)</h6>
-                                    <p class="mb-2 small text-muted" id="dogProfileHrSummaryIntro"></p>
+                                    <p class="mb-2 small text-muted d-none" id="dogProfileHrSummaryIntro"></p>
                                     <ul class="mb-0 small" id="dogProfileHrSummaryList">
                                     </ul>
                                 </div>
@@ -609,7 +609,8 @@
             if (!hasWeight) {
                 hrSummaryBox.style.display = "block";
                 hrSummaryIntro.textContent =
-                    "Enter a valid weight (kg) to see personalized HR estimates from the model.";
+                    "Enter a valid weight (kg) to see personalized heart rate estimates.";
+                hrSummaryIntro.classList.remove("d-none");
                 hrSummaryList.innerHTML = "";
                 return;
             }
@@ -625,8 +626,8 @@
             const avgHigh = Math.round(pred + HR_AVG_ABOVE);
 
             hrSummaryBox.style.display = "block";
-            hrSummaryIntro.textContent =
-                "Estimated baseline uses mean HR 114 bpm at 19.3 kg, weight adjustment −0.21 bpm/kg, age +0.002 bpm/day, and breed term when a listed breed is selected. Ideal bands below are placeholders — refine with your data and veterinary input.";
+            hrSummaryIntro.textContent = "";
+            hrSummaryIntro.classList.add("d-none");
 
             let breedNote = "";
             if (profile.dogBreedSelect === "other" && (profile.dogBreedOther || "").trim()) {
