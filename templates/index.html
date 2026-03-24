@@ -60,6 +60,7 @@
         <div class="tab-content">
         <!-- Overview tab: existing 3‑column layout -->
         <div class="tab-pane fade show active" id="overview-pane" role="tabpanel" aria-labelledby="overview-tab">
+            <h5 class="mb-3" id="statusDogHeader">Dog's Current Status:</h5>
             <div class="row g-4 align-items-stretch">
                 <!-- Left: at‑a‑glance vitals -->
                 <div class="col-lg-3">
@@ -312,15 +313,6 @@
                                     </div>
 
                                     <div class="col-md-6">
-                                        <label for="dogSizeSelect" class="form-label">Dog size</label>
-                                        <select class="form-select" id="dogSizeSelect">
-                                            <option value="small">Small</option>
-                                            <option value="medium" selected>Medium</option>
-                                            <option value="large">Large</option>
-                                        </select>
-                                    </div>
-
-                                    <div class="col-md-6">
                                         <label for="dogDateOfBirth" class="form-label">Date of birth</label>
                                         <input type="date" class="form-control" id="dogDateOfBirth">
                                         <small class="text-muted">Displayed format: DD/MM/YYYY</small>
@@ -334,14 +326,6 @@
                                         <input type="number" class="form-control" id="dogWeightKg" min="0" step="0.1" placeholder="Optional">
                                     </div>
 
-                                    <div class="col-md-6">
-                                        <label for="dogActivityLevel" class="form-label">Activity level</label>
-                                        <select class="form-select" id="dogActivityLevel">
-                                            <option value="low">Low</option>
-                                            <option value="medium" selected>Medium</option>
-                                            <option value="high">High</option>
-                                        </select>
-                                    </div>
                                 </div>
 
                                 <div class="d-flex gap-2 mt-4">
@@ -491,17 +475,15 @@
         const nameEl = document.getElementById("dogNameValue");
         const breedEl = document.getElementById("dogBreedValue");
         const genderEl = document.getElementById("dogGenderSelect");
-        const sizeEl = document.getElementById("dogSizeSelect");
         const dobEl = document.getElementById("dogDateOfBirth");
         const dobErrorText = document.getElementById("dogDobErrorText");
         const weightKgEl = document.getElementById("dogWeightKg");
-        const activityEl = document.getElementById("dogActivityLevel");
         const saveBtn = document.getElementById("saveDogProfileButton");
         const resetBtn = document.getElementById("resetDogProfileButton");
         const savedText = document.getElementById("dogProfileSavedText");
         const exactAgeText = document.getElementById("dogExactAgeText");
 
-        if (!nameEl || !breedEl || !genderEl || !sizeEl || !dobEl || !dobErrorText || !weightKgEl || !activityEl || !saveBtn || !resetBtn || !savedText || !exactAgeText) {
+        if (!nameEl || !breedEl || !genderEl || !dobEl || !dobErrorText || !weightKgEl || !saveBtn || !resetBtn || !savedText || !exactAgeText) {
             return;
         }
 
@@ -509,10 +491,8 @@
             dogName: "",
             dogBreed: "",
             dogGender: "male",
-            dogSize: "medium",
             dogDateOfBirth: "",
             dogWeightKg: null,
-            dogActivityLevel: "medium",
         };
 
         function parseDobAsLocalMidnight(dobStr) {
@@ -582,10 +562,8 @@
             nameEl.value = profile.dogName || defaults.dogName;
             breedEl.value = profile.dogBreed || defaults.dogBreed;
             genderEl.value = profile.dogGender || defaults.dogGender;
-            sizeEl.value = profile.dogSize || defaults.dogSize;
             dobEl.value = profile.dogDateOfBirth || defaults.dogDateOfBirth;
             weightKgEl.value = profile.dogWeightKg != null ? profile.dogWeightKg : "";
-            activityEl.value = profile.dogActivityLevel || defaults.dogActivityLevel;
             dobErrorText.style.display = "none";
             setExactAgeText(dobEl.value);
         }
@@ -611,10 +589,8 @@
                 dogName: String(nameEl.value || "").trim(),
                 dogBreed: String(breedEl.value || "").trim(),
                 dogGender: String(genderEl.value),
-                dogSize: String(sizeEl.value),
                 dogDateOfBirth: String(dobEl.value || ""),
                 dogWeightKg: Number.isFinite(weightKg) ? weightKg : null,
-                dogActivityLevel: String(activityEl.value),
             };
         }
 
@@ -623,6 +599,18 @@
             window.setTimeout(() => {
                 savedText.style.display = "none";
             }, 2000);
+        }
+
+        function renderStatusDogHeader(name) {
+            const headerEl = document.getElementById("statusDogHeader");
+            if (!headerEl) return;
+            const safeName = String(name || "").trim();
+            if (!safeName) {
+                headerEl.textContent = "Dog's Current Status:";
+                return;
+            }
+            const suffix = safeName.endsWith("s") || safeName.endsWith("S") ? "'" : "'s";
+            headerEl.textContent = `${safeName}${suffix} Current Status:`;
         }
 
         saveBtn.addEventListener("click", () => {
@@ -639,6 +627,7 @@
             try {
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
                 setExactAgeText(profile.dogDateOfBirth);
+                renderStatusDogHeader(profile.dogName);
                 showSaved();
             } catch (e) {
                 console.error("Failed to save dog profile", e);
@@ -653,6 +642,7 @@
                 // ignore
             }
             applyProfile(null);
+            renderStatusDogHeader("");
             showSaved();
         });
 
@@ -662,6 +652,12 @@
         });
 
         loadProfile();
+        try {
+            const profile = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+            renderStatusDogHeader(profile.dogName || "");
+        } catch (e) {
+            renderStatusDogHeader("");
+        }
     })();
 </script>
 
