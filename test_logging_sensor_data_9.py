@@ -14,7 +14,6 @@ from dog_profile_hr import (
     emotional_distress_avg_threshold,
     row_tuple_to_hr_dict,
 )
-from temp_estimator import estimate_core_temp_f
 from updated_heartrate_monitor_v3 import HeartRateMonitor
 from dual_IMU_step_counter_2 import DualIMUStepAnalyzer
 
@@ -169,21 +168,6 @@ ensure_schema(conn)
 
 print("Logging data to SQLite...")
 
-
-def _steps_per_min_from_history(points):
-    """
-    points: deque/list of tuples (timestamp, bpm, steps)
-    """
-    step_pts = [(p[0], p[2]) for p in points if p[2] is not None]
-    if len(step_pts) < 2:
-        return None
-    t0, s0 = step_pts[0]
-    t1, s1 = step_pts[-1]
-    dur = t1 - t0
-    if dur <= 5:
-        return None
-    return max(0.0, (float(s1) - float(s0)) / dur) * 60.0
-
 try:
     while True:
         timestamp = time.time()
@@ -225,13 +209,6 @@ try:
         ):
             emotional_distress_history.popleft()
 
-        steps_per_min_recent = _steps_per_min_from_history(emotional_distress_history)
-        core_temp_est_f, core_temp_conf = estimate_core_temp_f(
-            surface_temp_f=temp,
-            bpm=bpm,
-            steps_per_min=steps_per_min_recent,
-        )
-
         rawIR = None
         rawRed = None
 
@@ -245,8 +222,8 @@ try:
                 step_count, latest_step_length, avg_step_length,
                 asymmetry, limp, raw_temperature,
                 high_hr, low_hr, rapid_change, unstable_hr,
-                arrhythmia, core_temp_est_f, core_temp_confidence
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                arrhythmia
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             timestamp,
             dt,
@@ -262,9 +239,7 @@ try:
             int(hrm.low_hr_flag),       # 1 if low HR, else 0
             int(hrm.rapid_change_flag), # 1 if rapid BPM change, else 0
             int(hrm.unstable_hr_flag),  # 1 if unstable HR, else 0
-            None,                       # arrhythmia intentionally left blank
-            core_temp_est_f,
-            core_temp_conf,
+            None                        # arrhythmia intentionally left blank
         ))
 
         # -------------------------
@@ -334,23 +309,18 @@ try:
             insert_flag("Limp", "Step asymmetry exceeds threshold.")
             last_flag_times["Limp"] = timestamp
 
-        temp_for_flags = core_temp_est_f if core_temp_est_f is not None else temp
-        if temp_for_flags is not None:
-            if temp_for_flags > HIGH_TEMP_THRESHOLD and timestamp - last_flag_times["High Temperature"] > TEMP_COOLDOWN:
-                insert_flag("High Temperature", f"Estimated core temperature reached {temp_for_flags:.2f}F.")
+        if temp is not None:
+            if temp > HIGH_TEMP_THRESHOLD and timestamp - last_flag_times["High Temperature"] > TEMP_COOLDOWN:
+                insert_flag("High Temperature", f"Temperature reached {temp:.2f}F.")
                 last_flag_times["High Temperature"] = timestamp
 
-            if temp_for_flags < LOW_TEMP_THRESHOLD and timestamp - last_flag_times["Low Temperature"] > TEMP_COOLDOWN:
-                insert_flag("Low Temperature", f"Estimated core temperature dropped to {temp_for_flags:.2f}F.")
+            if temp < LOW_TEMP_THRESHOLD and timestamp - last_flag_times["Low Temperature"] > TEMP_COOLDOWN:
+                insert_flag("Low Temperature", f"Temperature dropped to {temp:.2f}F.")
                 last_flag_times["Low Temperature"] = timestamp
 
         conn.commit()
 
-        print(
-            f"BPM={bpm} | SurfaceTempF={temp} | CoreTempEstF={core_temp_est_f} "
-            f"| Steps={steps} | Limp={limp} | High HR = {high_hr}| Low HR = {low_hr} "
-            f"| Unstable HR = {unstable_hr} | Rapid Change in BPM = {rapid_change}"
-        )
+        print(f"BPM={bpm} | Temp={temp} | Steps={steps} | Limp={limp} | High HR = {high_hr}| Low HR = {low_hr} | Unstable HR = {unstable_hr} | Rapid Change in BPM = {rapid_change}")
 
         time.sleep(1)
 

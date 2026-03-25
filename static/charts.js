@@ -24,9 +24,9 @@ const ACTIVITY_ROLLING_WINDOW_SEC = 90; // ~1.5 min (try 60–120)
 const ACTIVITY_LOW_STEPS_PER_MIN = 8;
 const ACTIVITY_HIGH_STEPS_PER_MIN = 35;
 
-// Estimated core temperature (°F) thresholds (placeholder clinical guardrails).
-const TEMP_F_LOW_MAX = 99.0;
-const TEMP_F_HIGH_MIN = 103.5;
+// Temperature (°F) — matches logger display
+const TEMP_F_LOW_MAX = 65;
+const TEMP_F_HIGH_MIN = 104;
 
 // Dog profile → predicted HR (must match templates/index.html dog profile script)
 const DOG_PROFILE_STORAGE_KEY = "dogProfile";
@@ -222,7 +222,6 @@ function updateActivityTempCards(latestSample, allSamples) {
     const actStatus = document.getElementById("activityCardStatus");
     const tempEl = document.getElementById("tempCardValue");
     const tempStatus = document.getElementById("tempCardStatus");
-    const tempConfidenceEl = document.getElementById("tempCardConfidence");
 
     if (!latestSample) {
         if (actEl) actEl.textContent = "--";
@@ -235,7 +234,6 @@ function updateActivityTempCards(latestSample, allSamples) {
             tempStatus.textContent = "No data";
             tempStatus.className = "badge bg-secondary mb-3";
         }
-        if (tempConfidenceEl) tempConfidenceEl.textContent = "Confidence: --";
         return;
     }
 
@@ -262,31 +260,21 @@ function updateActivityTempCards(latestSample, allSamples) {
         }
     }
 
-    const surfaceF = latestSample.temperature ?? latestSample[2];
-    const coreF = latestSample.core_temp_est_f ?? surfaceF;
-    const coreConfidence = latestSample.core_temp_confidence;
+    const t = latestSample.temperature ?? latestSample[2];
     if (tempEl) {
-        if (coreF != null && !Number.isNaN(Number(coreF))) {
-            const n = Number(coreF);
+        if (t != null && !Number.isNaN(Number(t))) {
+            const n = Number(t);
             tempEl.textContent = `${n.toFixed(1)} °F`;
         } else {
             tempEl.textContent = "-- °F";
         }
     }
-    if (tempConfidenceEl) {
-        if (coreConfidence == null || Number.isNaN(Number(coreConfidence))) {
-            tempConfidenceEl.textContent = "Confidence: --";
-        } else {
-            const confPct = Math.round(Number(coreConfidence) * 100);
-            tempConfidenceEl.textContent = `Confidence: ${confPct}%`;
-        }
-    }
     if (tempStatus) {
-        if (coreF == null || Number.isNaN(Number(coreF))) {
+        if (t == null || Number.isNaN(Number(t))) {
             tempStatus.textContent = "No data";
             tempStatus.className = "badge bg-secondary mb-3";
         } else {
-            const n = Number(coreF);
+            const n = Number(t);
             if (n < TEMP_F_LOW_MAX) {
                 tempStatus.textContent = "Low";
                 tempStatus.className = "badge bg-warning text-dark mb-3";
@@ -381,7 +369,7 @@ function initChart() {
                 labels: [],
                 datasets: [
                     {
-                        label: "Estimated Core Temp",
+                        label: "Temperature",
                         data: [],
                         borderWidth: 2,
                         borderColor: "rgba(255, 193, 7, 1)",
@@ -455,9 +443,7 @@ function renderIncidentDataRows(samples) {
         bpmCell.textContent = formatMaybeNumber(sample.bpm, 0);
 
         const tempCell = document.createElement("td");
-        const incidentCoreF =
-            sample.core_temp_est_f != null ? sample.core_temp_est_f : sample.temperature;
-        tempCell.textContent = formatMaybeNumber(incidentCoreF, 1);
+        tempCell.textContent = formatMaybeNumber(sample.temperature, 1);
 
         const stepsCell = document.createElement("td");
         stepsCell.textContent = sample.step_count != null ? String(sample.step_count) : "--";
@@ -544,8 +530,7 @@ function renderFlagDetail() {
     if (metricsEl) {
         const parts = [];
         if (flag.bpm != null) parts.push(`${Math.round(flag.bpm)} bpm`);
-        const detailCoreF = flag.core_temp_est_f != null ? flag.core_temp_est_f : flag.temperature;
-        if (detailCoreF != null) parts.push(`${Number(detailCoreF).toFixed(1)} °F`);
+        if (flag.temperature != null) parts.push(`${Number(flag.temperature).toFixed(1)} °C`);
         if (flag.step_count != null) parts.push(`${flag.step_count} steps`);
         if (flag.limp === 1) parts.push("limp");
         if (flag.asymmetry != null) parts.push(`asym ${Number(flag.asymmetry).toFixed(2)}`);
@@ -587,8 +572,7 @@ function renderFlagsTable(tbodyId, flags) {
         const detailCell = document.createElement("td");
         const parts = [];
         if (flag.bpm != null) parts.push(`${Math.round(flag.bpm)} bpm`);
-        const rowCoreF = flag.core_temp_est_f != null ? flag.core_temp_est_f : flag.temperature;
-        if (rowCoreF != null) parts.push(`${Number(rowCoreF).toFixed(1)} °F`);
+        if (flag.temperature != null) parts.push(`${Number(flag.temperature).toFixed(1)} °C`);
         if (flag.step_count != null) parts.push(`${flag.step_count} steps`);
         if (flag.limp === 1) parts.push("limp");
         if (flag.asymmetry != null) parts.push(`asym ${Number(flag.asymmetry).toFixed(2)}`);
@@ -899,7 +883,7 @@ async function updateChart() {
         }
 
         if (tempChart) {
-            const temps = chronological.map((s) => s.core_temp_est_f ?? s.temperature ?? s.temp ?? s[2]);
+            const temps = chronological.map((s) => s.temperature ?? s.temp ?? s[2]);
             tempChart.data.labels = timestamps;
             tempChart.data.datasets[0].data = temps;
             tempChart.update();

@@ -30,9 +30,7 @@ def initialize_database():
         high_hr INTEGER DEFAULT 0,
         low_hr INTEGER DEFAULT 0,
         rapid_change INTEGER DEFAULT 0,
-        unstable_hr INTEGER DEFAULT 0,
-        core_temp_est_f REAL,
-        core_temp_confidence REAL
+        unstable_hr INTEGER DEFAULT 0
     );
     """)
 
