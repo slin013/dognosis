@@ -83,7 +83,7 @@ def index():
 
     cursor.execute("""
         SELECT datetime, bpm, high_hr, low_hr, rapid_change, unstable_hr,
-               temperature, step_count, timestamp
+               temperature, core_temp_est_f, core_temp_confidence, step_count, timestamp
         FROM sensor_data
         ORDER BY timestamp DESC LIMIT 1
     """)
@@ -98,12 +98,14 @@ def index():
             "rapid_change": row[4],
             "unstable_hr": row[5],
             "temperature": row[6],
-            "step_count": row[7],
-            "timestamp": row[8],
+            "core_temp_est_f": row[7],
+            "core_temp_confidence": row[8],
+            "step_count": row[9],
+            "timestamp": row[10],
         }
 
     cursor.execute("""
-        SELECT timestamp, datetime, bpm, temperature, step_count
+        SELECT timestamp, datetime, bpm, temperature, core_temp_est_f, core_temp_confidence, step_count
         FROM sensor_data
         ORDER BY timestamp DESC LIMIT 100
     """)
@@ -116,7 +118,9 @@ def index():
             "datetime": r[1],
             "bpm": r[2],
             "temperature": r[3],
-            "step_count": r[4],
+            "core_temp_est_f": r[4],
+            "core_temp_confidence": r[5],
+            "step_count": r[6],
         }
         for r in reversed(raw_rows)
     ]
@@ -130,7 +134,7 @@ def live_data():
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT timestamp, bpm, temperature, step_count,
+        SELECT timestamp, bpm, temperature, core_temp_est_f, core_temp_confidence, step_count,
                high_hr, low_hr, rapid_change, unstable_hr, datetime
         FROM sensor_data
         ORDER BY timestamp DESC
@@ -144,12 +148,14 @@ def live_data():
             "timestamp": r[0],
             "bpm": r[1],
             "temperature": r[2],
-            "step_count": r[3],
-            "high_hr": r[4],
-            "low_hr": r[5],
-            "rapid_change": r[6],
-            "unstable_hr": r[7],
-            "datetime": r[8],
+            "core_temp_est_f": r[3],
+            "core_temp_confidence": r[4],
+            "step_count": r[5],
+            "high_hr": r[6],
+            "low_hr": r[7],
+            "rapid_change": r[8],
+            "unstable_hr": r[9],
+            "datetime": r[10],
         }
         for r in raw
     ]
@@ -197,6 +203,8 @@ def flags_summary():
             f.is_user_generated,
             s.bpm,
             s.temperature,
+            s.core_temp_est_f,
+            s.core_temp_confidence,
             s.step_count,
             s.limp,
             s.asymmetry
@@ -265,6 +273,8 @@ def incident_context(flag_id):
             datetime,
             bpm,
             temperature,
+            core_temp_est_f,
+            core_temp_confidence,
             step_count,
             limp,
             asymmetry,

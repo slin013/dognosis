@@ -27,6 +27,8 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
         ("rapid_change", "INTEGER DEFAULT 0"),
         ("unstable_hr", "INTEGER DEFAULT 0"),
         ("temperature", "REAL"),
+        ("core_temp_est_f", "REAL"),
+        ("core_temp_confidence", "REAL"),
         ("step_count", "INTEGER"),
         ("limp", "INTEGER"),
         ("asymmetry", "REAL"),
