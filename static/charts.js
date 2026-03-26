@@ -8,10 +8,21 @@
 // - tempCardValue, tempCardStatus
 // - flagsList
 
-async function fetchJson(url) {
-    const response = await fetch(url, { cache: "no-store" });
-    if (!response.ok) throw new Error(`HTTP ${response.status} for ${url}`);
-    return response.json();
+const LIVE_DATA_TIMEOUT_MS = 5000;
+const SAMPLE_STALE_AFTER_SEC = 12;
+
+let updateChartInFlight = false;
+
+async function fetchJson(url, timeoutMs = LIVE_DATA_TIMEOUT_MS) {
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+    try {
+        const response = await fetch(url, { cache: "no-store", signal: controller.signal });
+        if (!response.ok) throw new Error(`HTTP ${response.status} for ${url}`);
+        return await response.json();
+    } finally {
+        window.clearTimeout(timeoutId);
+    }
 }
 
 let hrChart = null;
@@ -131,10 +142,21 @@ function setConnectionStatus(isOnline) {
     }
 }
 
-function setLastUpdated() {
+function setLastUpdated(latestSampleTsSeconds = null, latestSampleAgeSec = null) {
     const el = document.getElementById("lastUpdatedText");
     if (!el) return;
-    el.textContent = `Updated at ${new Date().toLocaleTimeString()}`;
+    const now = new Date();
+    if (latestSampleTsSeconds == null || !Number.isFinite(Number(latestSampleTsSeconds))) {
+        el.textContent = `Updated at ${now.toLocaleTimeString()}`;
+        return;
+    }
+
+    const latestStr = new Date(Number(latestSampleTsSeconds) * 1000).toLocaleTimeString();
+    const ageStr =
+        latestSampleAgeSec == null || !Number.isFinite(Number(latestSampleAgeSec))
+            ? ""
+            : ` (${Math.floor(Number(latestSampleAgeSec))}s ago)`;
+    el.textContent = `Updated at ${now.toLocaleTimeString()} • Latest sample: ${latestStr}${ageStr}`;
 }
 
 function updateHeartRateCard(latestSample) {
@@ -826,6 +848,8 @@ function initEditDeleteFlagModal() {
 }
 
 async function updateChart() {
+    if (updateChartInFlight) return;
+    updateChartInFlight = true;
     try {
         const data = await fetchJson("/live-data");
 
@@ -845,7 +869,7 @@ async function updateChart() {
                 tempChart.data.datasets[0].data = [];
                 tempChart.update();
             }
-            setConnectionStatus(true);
+            setConnectionStatus(false);
             setLastUpdated();
             updateHeartRateCard(null);
             updateActivityTempCards(null, null);
@@ -893,11 +917,19 @@ async function updateChart() {
         updateHeartRateCard(latestSample);
         updateActivityTempCards(latestSample, data);
 
-        setConnectionStatus(true);
-        setLastUpdated();
+        const latestTs = latestSample?.timestamp ?? latestSample?.[0];
+        const latestAgeSec =
+            latestTs != null && Number.isFinite(Number(latestTs)) ? nowSec - Math.floor(Number(latestTs)) : null;
+
+        const isFresh = latestAgeSec == null ? true : latestAgeSec <= SAMPLE_STALE_AFTER_SEC;
+        setConnectionStatus(isFresh);
+        setLastUpdated(latestTs, latestAgeSec);
     } catch (err) {
         console.error("Error updating chart", err);
         setConnectionStatus(false);
+        setLastUpdated();
+    } finally {
+        updateChartInFlight = false;
     }
 }
 
