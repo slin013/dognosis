@@ -522,6 +522,18 @@ async function loadIncidentDataForFlag(flag) {
     }
 }
 
+function resetIncidentDataTableForSelection() {
+    const tbody = document.getElementById("flagIncidentDataBody");
+    const emptyEl = document.getElementById("flagIncidentDataEmpty");
+    const loadingEl = document.getElementById("flagIncidentDataLoading");
+    if (!tbody || !emptyEl || !loadingEl) return;
+
+    loadingEl.classList.add("d-none");
+    emptyEl.classList.add("d-none");
+    tbody.innerHTML =
+        '<tr><td colspan="6" class="text-muted">Click “Load / refresh incident data” to fetch samples for this incident.</td></tr>';
+}
+
 function renderFlagDetail() {
     const emptyEl = document.getElementById("flagDetailEmpty");
     const contentEl = document.getElementById("flagDetailContent");
@@ -568,7 +580,8 @@ function renderFlagDetail() {
         descEl.textContent = flag.description || "No additional description.";
     }
 
-    loadIncidentDataForFlag(flag);
+    // Do not auto-load incident context; wait for explicit user action.
+    resetIncidentDataTableForSelection();
 }
 
 function renderFlagsTable(tbodyId, flags) {
@@ -644,6 +657,15 @@ function highlightSelectedFlag() {
             const isSelected = selectedId != null && tr.dataset.flagId === selectedId;
             tr.classList.toggle("table-info", isSelected);
         });
+    });
+}
+
+function initIncidentDataLoadButton() {
+    const btn = document.getElementById("loadIncidentDataButton");
+    if (!btn) return;
+    btn.addEventListener("click", () => {
+        const flag = dashboardState.selectedFlag;
+        loadIncidentDataForFlag(flag);
     });
 }
 
@@ -1135,6 +1157,7 @@ function start() {
     initTimeWindowButtons();
     initAddFlagModal();
     initEditDeleteFlagModal();
+    initIncidentDataLoadButton();
     updateChart();
     updateFlags();
     loadFlagsSummary();

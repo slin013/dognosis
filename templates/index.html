@@ -190,11 +190,23 @@
                                     </div>
                                     <div class="col-lg-6">
                                         <h6 class="mb-2">Incident Data (15 min before/after)</h6>
+                                        <div class="d-flex align-items-center gap-2 mb-2">
+                                            <button
+                                                type="button"
+                                                class="btn btn-sm btn-outline-primary"
+                                                id="loadIncidentDataButton"
+                                            >
+                                                Load / refresh incident data
+                                            </button>
+                                            <span class="text-muted small">
+                                                Fetches sensor samples around the selected incident.
+                                            </span>
+                                        </div>
                                         <div id="flagIncidentDataLoading" class="text-muted small d-none mb-2">
-                                            Loading incident data...
+                                            Loading incident data…
                                         </div>
                                         <div id="flagIncidentDataEmpty" class="text-muted small d-none mb-2">
-                                            No sensor samples found in this 30-minute window.
+                                            No sensor samples found in this 30‑minute window.
                                         </div>
                                         <div class="table-responsive" style="max-height: 220px;">
                                             <table class="table table-sm table-striped align-middle mb-0">
