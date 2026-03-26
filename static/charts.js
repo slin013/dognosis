@@ -127,6 +127,11 @@ const dashboardState = {
     deviceFlags: [],
     userFlags: [],
     selectedFlag: null,
+    // `selectedFlagTypes === null` means "show all flag types".
+    availableFlagTypes: [],
+    selectedFlagTypes: null,
+    _flagTypeFilterTypesKey: "",
+    _flagTypeFilterHandlerAttached: false,
 };
 let incidentDataRequestToken = 0;
 
@@ -642,6 +647,134 @@ function highlightSelectedFlag() {
     });
 }
 
+function ensureFlagTypeFilterUI(deviceFlags) {
+    const container = document.getElementById("flagTypeCheckboxes");
+    const statusEl = document.getElementById("flagTypeFilterStatus");
+    if (!container) return;
+
+    const types = [
+        ...new Set(
+            (deviceFlags || [])
+                .map((f) => (f && f.flag_type != null ? String(f.flag_type) : null))
+                .filter((t) => t && t.trim() !== "")
+        ),
+    ];
+
+    // Sort by display label for a stable, human-friendly order.
+    types.sort((a, b) => mapFlagTypeToLabel(a).localeCompare(mapFlagTypeToLabel(b)));
+    const typesKey = types.join("|");
+    dashboardState.availableFlagTypes = types;
+
+    if (dashboardState._flagTypeFilterTypesKey !== typesKey) {
+        container.innerHTML = "";
+
+        if (types.length === 0) {
+            container.innerHTML =
+                '<div class="text-muted small">No device flags available for filtering.</div>';
+        } else {
+        types.forEach((flagType, idx) => {
+            const checkboxId = `flagTypeCheckbox_${idx}`;
+            const wrapper = document.createElement("div");
+            wrapper.className = "form-check";
+
+            const input = document.createElement("input");
+            input.type = "checkbox";
+            input.className = "form-check-input";
+            input.id = checkboxId;
+            input.dataset.flagType = flagType;
+            input.checked = dashboardState.selectedFlagTypes == null || dashboardState.selectedFlagTypes.has(flagType);
+
+            const label = document.createElement("label");
+            label.className = "form-check-label";
+            label.htmlFor = checkboxId;
+            label.textContent = mapFlagTypeToLabel(flagType);
+
+            wrapper.appendChild(input);
+            wrapper.appendChild(label);
+            container.appendChild(wrapper);
+        });
+        }
+
+        dashboardState._flagTypeFilterTypesKey = typesKey;
+    }
+
+    // Attach event handler once (event delegation via `change` bubbling).
+    if (!dashboardState._flagTypeFilterHandlerAttached) {
+        container.addEventListener("change", (ev) => {
+            const target = ev.target;
+            if (!(target instanceof HTMLInputElement)) return;
+            if (!target.matches('input[data-flag-type]')) return;
+
+            const inputs = container.querySelectorAll('input[type="checkbox"][data-flag-type]');
+            const checkedTypes = [];
+            inputs.forEach((inp) => {
+                if (inp.checked) checkedTypes.push(String(inp.dataset.flagType || ""));
+            });
+
+            // If everything is checked, switch back to "show all".
+            if (dashboardState.availableFlagTypes.length > 0 && checkedTypes.length === dashboardState.availableFlagTypes.length) {
+                dashboardState.selectedFlagTypes = null;
+            } else {
+                dashboardState.selectedFlagTypes = new Set(checkedTypes);
+            }
+
+            applyFlagTypeFilterAndRender();
+        });
+        dashboardState._flagTypeFilterHandlerAttached = true;
+    }
+
+    if (statusEl) {
+        if (dashboardState.selectedFlagTypes == null) {
+            statusEl.textContent = dashboardState.availableFlagTypes.length
+                ? `All (${dashboardState.availableFlagTypes.length})`
+                : "No device flag types";
+        } else {
+            statusEl.textContent = `Selected (${dashboardState.selectedFlagTypes.size})`;
+        }
+    }
+}
+
+function applyFlagTypeFilterAndRender() {
+    const deviceTbody = document.getElementById("deviceFlagsTableBody");
+    const userTbody = document.getElementById("userFlagsTableBody");
+    if (!deviceTbody || !userTbody) return;
+
+    const selectedTypes = dashboardState.selectedFlagTypes;
+    const filterFn = (f) => {
+        if (!f) return false;
+        if (selectedTypes == null) return true;
+        const t = f.flag_type != null ? String(f.flag_type) : "";
+        return selectedTypes.has(t);
+    };
+
+    const deviceFiltered = (dashboardState.deviceFlags || []).filter(filterFn);
+    // Per requirement: checkbox filter should ONLY apply to device incidents.
+    const userFiltered = dashboardState.userFlags || [];
+
+    // Preserve the server-provided timestamp order by filtering only (no re-sorting).
+    renderFlagsTable("deviceFlagsTableBody", deviceFiltered);
+    renderFlagsTable("userFlagsTableBody", userFiltered);
+
+    // Ensure the selected incident is still visible after filtering.
+    const selectedId =
+        dashboardState.selectedFlag && dashboardState.selectedFlag.id != null
+            ? String(dashboardState.selectedFlag.id)
+            : null;
+
+    let nextSelected =
+        selectedId != null
+            ? [...deviceFiltered, ...userFiltered].find((f) => String(f.id) === selectedId)
+            : null;
+
+    if (!nextSelected) {
+        nextSelected = deviceFiltered[0] || userFiltered[0] || null;
+    }
+
+    dashboardState.selectedFlag = nextSelected;
+    highlightSelectedFlag();
+    renderFlagDetail();
+}
+
 async function loadFlagsSummary() {
     try {
         const data = await fetchJson("/flags-summary");
@@ -653,25 +786,18 @@ async function loadFlagsSummary() {
         dashboardState.deviceFlags = deviceFlags;
         dashboardState.userFlags = userFlags;
 
-        renderFlagsTable("deviceFlagsTableBody", deviceFlags);
-        renderFlagsTable("userFlagsTableBody", userFlags);
-
+        // If we have a selected flag, try to resolve it to the latest full object from the DB.
         const selectedId =
             dashboardState.selectedFlag && dashboardState.selectedFlag.id != null
                 ? String(dashboardState.selectedFlag.id)
                 : null;
-
         if (selectedId) {
             const match = [...deviceFlags, ...userFlags].find((f) => String(f.id) === selectedId);
-            if (match) dashboardState.selectedFlag = match;
+            dashboardState.selectedFlag = match || null;
         }
 
-        if (!dashboardState.selectedFlag) {
-            dashboardState.selectedFlag = deviceFlags[0] || userFlags[0] || null;
-        }
-
-        highlightSelectedFlag();
-        renderFlagDetail();
+        ensureFlagTypeFilterUI(deviceFlags);
+        applyFlagTypeFilterAndRender();
     } catch (err) {
         console.error("Error loading flags summary", err);
         const dTbody = document.getElementById("deviceFlagsTableBody");
