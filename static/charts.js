@@ -569,7 +569,10 @@ function renderFlagDetail() {
     if (metricsEl) {
         const parts = [];
         if (flag.bpm != null) parts.push(`${Math.round(flag.bpm)} bpm`);
-        if (flag.temperature != null) parts.push(`${Number(flag.temperature).toFixed(1)} °C`);
+        if (flag.temperature != null) {
+            const n = Number(flag.temperature);
+            if (Number.isFinite(n)) parts.push(`${n.toFixed(1)} °F`);
+        }
         if (flag.step_count != null) parts.push(`${flag.step_count} steps`);
         if (flag.limp === 1) parts.push("limp");
         if (flag.asymmetry != null) parts.push(`asym ${Number(flag.asymmetry).toFixed(2)}`);
@@ -612,7 +615,10 @@ function renderFlagsTable(tbodyId, flags) {
         const detailCell = document.createElement("td");
         const parts = [];
         if (flag.bpm != null) parts.push(`${Math.round(flag.bpm)} bpm`);
-        if (flag.temperature != null) parts.push(`${Number(flag.temperature).toFixed(1)} °C`);
+        if (flag.temperature != null) {
+            const n = Number(flag.temperature);
+            if (Number.isFinite(n)) parts.push(`${n.toFixed(1)} °F`);
+        }
         if (flag.step_count != null) parts.push(`${flag.step_count} steps`);
         if (flag.limp === 1) parts.push("limp");
         if (flag.asymmetry != null) parts.push(`asym ${Number(flag.asymmetry).toFixed(2)}`);
