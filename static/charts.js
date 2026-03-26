@@ -132,6 +132,8 @@ const dashboardState = {
     selectedFlagTypes: null,
     _flagTypeFilterTypesKey: "",
     _flagTypeFilterHandlerAttached: false,
+    // Tracks which flag currently has incident data loaded in the table.
+    incidentDataLoadedForFlagId: null,
 };
 let incidentDataRequestToken = 0;
 
@@ -513,6 +515,8 @@ async function loadIncidentDataForFlag(flag) {
         const payload = await fetchJson(`/incident-context/${flag.id}?window_minutes=15`);
         if (thisRequestToken !== incidentDataRequestToken) return;
         renderIncidentDataRows(payload.samples || []);
+        dashboardState.incidentDataLoadedForFlagId =
+            flag && flag.id != null ? Number(flag.id) : null;
     } catch (err) {
         if (thisRequestToken !== incidentDataRequestToken) return;
         loadingEl.classList.add("d-none");
@@ -530,6 +534,7 @@ function resetIncidentDataTableForSelection() {
 
     loadingEl.classList.add("d-none");
     emptyEl.classList.add("d-none");
+    dashboardState.incidentDataLoadedForFlagId = null;
     tbody.innerHTML =
         '<tr><td colspan="6" class="text-muted">Click “Load / refresh incident data” to fetch samples for this incident.</td></tr>';
 }
@@ -543,6 +548,7 @@ function renderFlagDetail() {
     if (!flag) {
         emptyEl.classList.remove("d-none");
         contentEl.classList.add("d-none");
+        dashboardState.incidentDataLoadedForFlagId = null;
         return;
     }
 
@@ -584,7 +590,16 @@ function renderFlagDetail() {
     }
 
     // Do not auto-load incident context; wait for explicit user action.
-    resetIncidentDataTableForSelection();
+    // Also, avoid clearing the table on background refreshes if we already
+    // loaded data for this flag.
+    const currentLoadedId =
+        dashboardState.incidentDataLoadedForFlagId != null
+            ? Number(dashboardState.incidentDataLoadedForFlagId)
+            : null;
+    const thisFlagId = flag && flag.id != null ? Number(flag.id) : null;
+    if (currentLoadedId !== thisFlagId) {
+        resetIncidentDataTableForSelection();
+    }
 }
 
 function renderFlagsTable(tbodyId, flags) {
