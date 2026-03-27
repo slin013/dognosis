@@ -370,11 +370,6 @@
                                         <label for="dogWeightKg" class="form-label">Weight (kg)</label>
                                         <input type="number" class="form-control" id="dogWeightKg" min="0" step="0.1" placeholder="Optional">
                                     </div>
-                                    <div class="col-md-6">
-                                        <label for="dogRestingHr" class="form-label">Measured resting HR (bpm)</label>
-                                        <input type="number" class="form-control" id="dogRestingHr" min="0" step="1" placeholder="Optional">
-                                        <small class="text-muted">If set, alerts use this baseline first.</small>
-                                    </div>
 
                                 </div>
 
@@ -539,7 +534,6 @@
         const dobEl = document.getElementById("dogDateOfBirth");
         const dobErrorText = document.getElementById("dogDobErrorText");
         const weightKgEl = document.getElementById("dogWeightKg");
-        const restingHrEl = document.getElementById("dogRestingHr");
         const saveBtn = document.getElementById("saveDogProfileButton");
         const resetBtn = document.getElementById("resetDogProfileButton");
         const savedText = document.getElementById("dogProfileSavedText");
@@ -548,7 +542,7 @@
         const hrSummaryIntro = document.getElementById("dogProfileHrSummaryIntro");
         const hrSummaryList = document.getElementById("dogProfileHrSummaryList");
 
-        if (!nameEl || !breedSelectEl || !breedOtherWrap || !breedOtherEl || !genderEl || !dobEl || !dobErrorText || !weightKgEl || !restingHrEl || !saveBtn || !resetBtn || !savedText || !exactAgeText || !hrSummaryBox || !hrSummaryIntro || !hrSummaryList) {
+        if (!nameEl || !breedSelectEl || !breedOtherWrap || !breedOtherEl || !genderEl || !dobEl || !dobErrorText || !weightKgEl || !saveBtn || !resetBtn || !savedText || !exactAgeText || !hrSummaryBox || !hrSummaryIntro || !hrSummaryList) {
             return;
         }
 
@@ -561,8 +555,6 @@
         const HR_RESTING_ABOVE = 8;
         const HR_AVG_BELOW = 15;
         const HR_AVG_ABOVE = 35;
-        const RESTING_HR_LOW_MULT = 0.7;
-        const RESTING_HR_HIGH_MULT = 1.5;
 
         const BREED_COEFFS = {
             border_collie: -7.777,
@@ -582,7 +574,6 @@
             dogGender: "male",
             dogDateOfBirth: "",
             dogWeightKg: null,
-            dogRestingHr: null,
         };
 
         function ageDaysFromDobStr(dobStr) {
@@ -640,38 +631,26 @@
             }
 
             const pred = computePredictedHr(profile);
-            const restingHr = Number(profile.dogRestingHr);
-            const hasRestingHr = Number.isFinite(restingHr) && restingHr > 0;
             const hasWeight = profile.dogWeightKg != null && Number.isFinite(Number(profile.dogWeightKg)) && Number(profile.dogWeightKg) > 0;
 
-            if (!hasWeight && !hasRestingHr) {
+            if (!hasWeight) {
                 hrSummaryBox.style.display = "block";
                 hrSummaryIntro.textContent =
-                    "Enter measured resting HR or a valid weight (kg) to see personalized heart rate estimates.";
+                    "Enter a valid weight (kg) to see personalized heart rate estimates.";
                 hrSummaryIntro.classList.remove("d-none");
                 hrSummaryList.innerHTML = "";
                 return;
             }
 
-            if (!hasRestingHr && pred == null) {
+            if (pred == null) {
                 hrSummaryBox.style.display = "none";
                 return;
             }
 
-            const baseline = hasRestingHr ? restingHr : pred;
-            const baselineLabel = hasRestingHr ? "Measured resting baseline" : "Estimated baseline";
-            const restingLow = hasRestingHr
-                ? Math.round(baseline * 0.8)
-                : Math.round(baseline - HR_RESTING_BELOW);
-            const restingHigh = hasRestingHr
-                ? Math.round(baseline * 1.1)
-                : Math.round(baseline + HR_RESTING_ABOVE);
-            const avgLow = hasRestingHr
-                ? Math.round(baseline * RESTING_HR_LOW_MULT)
-                : Math.round(baseline - HR_AVG_BELOW);
-            const avgHigh = hasRestingHr
-                ? Math.round(baseline * RESTING_HR_HIGH_MULT)
-                : Math.round(baseline + HR_AVG_ABOVE);
+            const restingLow = Math.round(pred - HR_RESTING_BELOW);
+            const restingHigh = Math.round(pred + HR_RESTING_ABOVE);
+            const avgLow = Math.round(pred - HR_AVG_BELOW);
+            const avgHigh = Math.round(pred + HR_AVG_ABOVE);
 
             hrSummaryBox.style.display = "block";
             hrSummaryIntro.textContent = "";
@@ -686,7 +665,7 @@
             }
 
             hrSummaryList.innerHTML = `
-                <li><strong>${baselineLabel} HR:</strong> ${Math.round(baseline * 10) / 10} bpm</li>
+                <li><strong>Estimated baseline HR:</strong> ${pred} bpm</li>
                 <li><strong>Ideal resting range (placeholder):</strong> ${restingLow}–${restingHigh} bpm</li>
                 <li><strong>Ideal typical daily range (placeholder):</strong> ${avgLow}–${avgHigh} bpm</li>
                 ${breedNote}
@@ -768,7 +747,6 @@
             genderEl.value = profile.dogGender || defaults.dogGender;
             dobEl.value = profile.dogDateOfBirth || defaults.dogDateOfBirth;
             weightKgEl.value = profile.dogWeightKg != null ? profile.dogWeightKg : "";
-            restingHrEl.value = profile.dogRestingHr != null ? profile.dogRestingHr : "";
             dobErrorText.style.display = "none";
             updateBreedOtherVisibility();
             setExactAgeText(dobEl.value);
@@ -819,8 +797,6 @@
         function gatherProfile() {
             const dogWeightKgRaw = weightKgEl.value;
             const weightKg = dogWeightKgRaw === "" ? null : Number(dogWeightKgRaw);
-            const dogRestingHrRaw = restingHrEl.value;
-            const restingHr = dogRestingHrRaw === "" ? null : Number(dogRestingHrRaw);
             return {
                 dogName: String(nameEl.value || "").trim(),
                 dogBreedSelect: String(breedSelectEl.value || ""),
@@ -831,7 +807,6 @@
                 dogGender: String(genderEl.value),
                 dogDateOfBirth: String(dobEl.value || ""),
                 dogWeightKg: Number.isFinite(weightKg) ? weightKg : null,
-                dogRestingHr: Number.isFinite(restingHr) && restingHr > 0 ? restingHr : null,
             };
         }
 
@@ -926,9 +901,6 @@
         });
 
         weightKgEl.addEventListener("input", () => {
-            renderHrSummary(gatherProfile());
-        });
-        restingHrEl.addEventListener("input", () => {
             renderHrSummary(gatherProfile());
         });
 

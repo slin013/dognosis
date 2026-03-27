@@ -63,7 +63,6 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
                 breed TEXT,
                 age INTEGER,
                 weight REAL,
-                resting_hr REAL,
                 size TEXT,
                 date_of_birth TEXT,
                 breed_code TEXT,
@@ -81,7 +80,6 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
             ("breed_code", "TEXT"),
             ("breed_other", "TEXT"),
             ("gender", "TEXT"),
-            ("resting_hr", "REAL"),
             ("updated_at", "TEXT"),
         ):
             if col not in dog_cols:

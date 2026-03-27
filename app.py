@@ -445,7 +445,7 @@ def dog_profile():
     if request.method == "GET":
         cursor.execute(
             """
-            SELECT name, weight, resting_hr, date_of_birth, breed_code, breed_other, gender
+            SELECT name, weight, date_of_birth, breed_code, breed_other, gender
             FROM dog_profile WHERE id = 1
             """
         )
@@ -456,19 +456,17 @@ def dog_profile():
                 {
                     "dogName": "",
                     "dogWeightKg": None,
-                    "dogRestingHr": None,
                     "dogDateOfBirth": "",
                     "dogBreedSelect": "",
                     "dogBreedOther": "",
                     "dogGender": "male",
                 }
             )
-        name, weight, resting_hr, dob, breed_code, breed_other, gender = row
+        name, weight, dob, breed_code, breed_other, gender = row
         return jsonify(
             {
                 "dogName": name or "",
                 "dogWeightKg": weight,
-                "dogRestingHr": resting_hr,
                 "dogDateOfBirth": dob or "",
                 "dogBreedSelect": breed_code or "",
                 "dogBreedOther": breed_other or "",
@@ -479,7 +477,6 @@ def dog_profile():
     payload = request.get_json(force=True, silent=True) or {}
     dog_name = str(payload.get("dogName") or "").strip()
     dog_weight = payload.get("dogWeightKg")
-    dog_resting_hr = payload.get("dogRestingHr")
     dog_dob = str(payload.get("dogDateOfBirth") or "").strip()
     breed_code = str(payload.get("dogBreedSelect") or "").strip()
     breed_other = str(payload.get("dogBreedOther") or "").strip()
@@ -492,15 +489,6 @@ def dog_profile():
         except (TypeError, ValueError):
             weight_val = None
 
-    resting_hr_val = None
-    if dog_resting_hr is not None and dog_resting_hr != "":
-        try:
-            resting_hr_val = float(dog_resting_hr)
-            if resting_hr_val <= 0:
-                resting_hr_val = None
-        except (TypeError, ValueError):
-            resting_hr_val = None
-
     breed_display = _breed_display(breed_code, breed_other)
     age_years = _age_years_from_dob(dog_dob if dog_dob else None)
     updated = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -512,7 +500,6 @@ def dog_profile():
             breed = ?,
             age = ?,
             weight = ?,
-            resting_hr = ?,
             date_of_birth = ?,
             breed_code = ?,
             breed_other = ?,
@@ -525,7 +512,6 @@ def dog_profile():
             breed_display,
             age_years,
             weight_val,
-            resting_hr_val,
             dog_dob or None,
             breed_code or None,
             breed_other or None,

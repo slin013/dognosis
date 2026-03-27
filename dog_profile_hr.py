@@ -16,12 +16,6 @@ HR_AGE_PER_DAY = 0.002
 HR_FLAG_LOW_BELOW_PRED = 15
 HR_FLAG_HIGH_ABOVE_PRED = 35
 
-# Baseline-first thresholds when measured resting HR is available.
-# If baseline exists, these multipliers should dominate model output.
-RESTING_HR_LOW_MULT = 0.7
-RESTING_HR_HIGH_MULT = 1.5
-RESTING_HR_EMOTIONAL_DISTRESS_MULT = 1.4
-
 BREED_COEFFS = {
     "border_collie": -7.777,
     "ckcs": 13.822,
@@ -88,63 +82,10 @@ def emotional_distress_avg_threshold(predicted: Optional[float]) -> float:
     return 130.0
 
 
-def resting_hr_from_row(row: Optional[Dict[str, Any]]) -> Optional[float]:
-    """Return valid resting HR from profile row, if available."""
-    if not row:
-        return None
-    value = row.get("resting_hr")
-    if value is None:
-        return None
-    try:
-        rf = float(value)
-    except (TypeError, ValueError):
-        return None
-    if rf <= 0:
-        return None
-    return rf
-
-
-def compute_hr_thresholds(
-    row: Optional[Dict[str, Any]],
-    predicted: Optional[float],
-) -> Dict[str, Optional[float]]:
-    """
-    Returns personalized low/high/distress thresholds.
-    Priority: resting baseline > profile prediction > None.
-    """
-    resting = resting_hr_from_row(row)
-    if resting is not None:
-        return {
-            "low": round(resting * RESTING_HR_LOW_MULT, 1),
-            "high": round(resting * RESTING_HR_HIGH_MULT, 1),
-            "emotional_distress_min_avg": round(resting * RESTING_HR_EMOTIONAL_DISTRESS_MULT, 1),
-            "baseline_type": "resting",
-            "baseline_value": round(resting, 1),
-        }
-
-    if predicted is not None:
-        return {
-            "low": round(predicted - HR_FLAG_LOW_BELOW_PRED, 1),
-            "high": round(predicted + HR_FLAG_HIGH_ABOVE_PRED, 1),
-            "emotional_distress_min_avg": round(emotional_distress_avg_threshold(predicted), 1),
-            "baseline_type": "predicted",
-            "baseline_value": round(predicted, 1),
-        }
-
-    return {
-        "low": None,
-        "high": None,
-        "emotional_distress_min_avg": round(emotional_distress_avg_threshold(None), 1),
-        "baseline_type": None,
-        "baseline_value": None,
-    }
-
-
 def row_tuple_to_hr_dict(row: tuple, col_names: list) -> Dict[str, Any]:
     d = dict(zip(col_names, row))
     return {
         "weight": d.get("weight"),
-        "resting_hr": d.get("resting_hr"),
         "date_of_birth": d.get("date_of_birth"),
         "breed_code": d.get("breed_code"),
     }
