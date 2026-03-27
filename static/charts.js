@@ -45,9 +45,11 @@ const HR_PRED_MEAN = 114;
 const HR_PRED_MEAN_WEIGHT_KG = 19.3;
 const HR_PRED_WEIGHT_SLOPE = -0.21;
 const HR_PRED_AGE_PER_DAY = 0.002;
-/** Typical daily band vs predicted baseline (same as profile “ideal typical daily” placeholders) */
-const HR_STATUS_LOW_BELOW_PRED = 15;
-const HR_STATUS_HIGH_ABOVE_PRED = 35;
+/** HR card bands vs predicted baseline (same as profile resting/active ranges) */
+const HR_BAND_RESTING_LOWER_SUB = 40;
+const HR_BAND_RESTING_UPPER_SUB = 10;
+const HR_BAND_ACTIVE_LOWER_ADD = 10;
+const HR_BAND_ACTIVE_UPPER_ADD = 40;
 
 const HR_PRED_BREED_COEFFS = {
     border_collie: -7.777,
@@ -194,17 +196,25 @@ function updateHeartRateCard(latestSample) {
     let badgeClass = "badge bg-success";
 
     if (predicted != null) {
-        const lowBelow = predicted - HR_STATUS_LOW_BELOW_PRED;
-        const highAbove = predicted + HR_STATUS_HIGH_ABOVE_PRED;
-        if (rounded < lowBelow) {
+        const restLo = predicted - HR_BAND_RESTING_LOWER_SUB;
+        const restHi = predicted - HR_BAND_RESTING_UPPER_SUB;
+        const actLo = predicted + HR_BAND_ACTIVE_LOWER_ADD;
+        const actHi = predicted + HR_BAND_ACTIVE_UPPER_ADD;
+        if (rounded < restLo) {
             statusText = "Low";
             badgeClass = "badge bg-warning text-dark";
-        } else if (rounded > highAbove) {
+        } else if (rounded <= restHi) {
+            statusText = "Resting";
+            badgeClass = "badge bg-success";
+        } else if (rounded < actLo) {
+            statusText = "Normal";
+            badgeClass = "badge bg-info text-dark";
+        } else if (rounded <= actHi) {
+            statusText = "Active";
+            badgeClass = "badge bg-primary";
+        } else {
             statusText = "High";
             badgeClass = "badge bg-danger";
-        } else {
-            statusText = "Normal";
-            badgeClass = "badge bg-success";
         }
     } else {
         if (rounded < 50) {

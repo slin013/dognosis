@@ -551,10 +551,11 @@
         const HR_MEAN_WEIGHT_KG = 19.3;
         const HR_WEIGHT_SLOPE = -0.21;
         const HR_AGE_PER_DAY = 0.002;
-        const HR_RESTING_BELOW = 18;
-        const HR_RESTING_ABOVE = 8;
-        const HR_AVG_BELOW = 15;
-        const HR_AVG_ABOVE = 35;
+        // vs predicted baseline: resting [pred−40, pred−10], active [pred+10, pred+40]
+        const HR_RESTING_LOWER_SUB = 40;
+        const HR_RESTING_UPPER_SUB = 10;
+        const HR_ACTIVE_LOWER_ADD = 10;
+        const HR_ACTIVE_UPPER_ADD = 40;
 
         const BREED_COEFFS = {
             border_collie: -7.777,
@@ -647,10 +648,10 @@
                 return;
             }
 
-            const restingLow = Math.round(pred - HR_RESTING_BELOW);
-            const restingHigh = Math.round(pred + HR_RESTING_ABOVE);
-            const avgLow = Math.round(pred - HR_AVG_BELOW);
-            const avgHigh = Math.round(pred + HR_AVG_ABOVE);
+            const restingLow = Math.round(pred - HR_RESTING_LOWER_SUB);
+            const restingHigh = Math.round(pred - HR_RESTING_UPPER_SUB);
+            const activeLow = Math.round(pred + HR_ACTIVE_LOWER_ADD);
+            const activeHigh = Math.round(pred + HR_ACTIVE_UPPER_ADD);
 
             hrSummaryBox.style.display = "block";
             hrSummaryIntro.textContent = "";
@@ -667,7 +668,7 @@
             hrSummaryList.innerHTML = `
                 <li><strong>Estimated baseline HR:</strong> ${pred} bpm</li>
                 <li><strong>Ideal resting range (placeholder):</strong> ${restingLow}–${restingHigh} bpm</li>
-                <li><strong>Ideal typical daily range (placeholder):</strong> ${avgLow}–${avgHigh} bpm</li>
+                <li><strong>Active range (placeholder):</strong> ${activeLow}–${activeHigh} bpm</li>
                 ${breedNote}
             `;
         }
