@@ -658,15 +658,20 @@
                 return;
             }
 
-            const modelRestingLow = pred != null ? Math.round(pred - HR_RESTING_BELOW) : null;
-            const modelRestingHigh = pred != null ? Math.round(pred + HR_RESTING_ABOVE) : null;
-            const modelAvgLow = pred != null ? Math.round(pred - HR_AVG_BELOW) : null;
-            const modelAvgHigh = pred != null ? Math.round(pred + HR_AVG_ABOVE) : null;
-
-            const personalRestingLow = hasRestingHr ? Math.round(restingHr * 0.8) : null;
-            const personalRestingHigh = hasRestingHr ? Math.round(restingHr * 1.1) : null;
-            const personalAvgLow = hasRestingHr ? Math.round(restingHr * RESTING_HR_LOW_MULT) : null;
-            const personalAvgHigh = hasRestingHr ? Math.round(restingHr * RESTING_HR_HIGH_MULT) : null;
+            const baseline = hasRestingHr ? restingHr : pred;
+            const baselineLabel = hasRestingHr ? "Measured resting baseline" : "Estimated baseline";
+            const restingLow = hasRestingHr
+                ? Math.round(baseline * 0.8)
+                : Math.round(baseline - HR_RESTING_BELOW);
+            const restingHigh = hasRestingHr
+                ? Math.round(baseline * 1.1)
+                : Math.round(baseline + HR_RESTING_ABOVE);
+            const avgLow = hasRestingHr
+                ? Math.round(baseline * RESTING_HR_LOW_MULT)
+                : Math.round(baseline - HR_AVG_BELOW);
+            const avgHigh = hasRestingHr
+                ? Math.round(baseline * RESTING_HR_HIGH_MULT)
+                : Math.round(baseline + HR_AVG_ABOVE);
 
             hrSummaryBox.style.display = "block";
             hrSummaryIntro.textContent = "";
@@ -680,35 +685,10 @@
                 breedNote = `<li class="text-muted">“Other” selected — no breed adjustment applied.</li>`;
             }
 
-            const modelPanel = pred != null
-                ? `
-                    <li class="mt-2"><strong>Typical range for this dog (profile model)</strong></li>
-                    <li><strong>Estimated baseline HR:</strong> ${pred} bpm</li>
-                    <li><strong>Typical resting range:</strong> ${modelRestingLow}–${modelRestingHigh} bpm</li>
-                    <li><strong>Typical daily range:</strong> ${modelAvgLow}–${modelAvgHigh} bpm</li>
-                    <li class="text-muted">Based on profile inputs (weight, age, and breed adjustment when available).</li>
-                `
-                : `
-                    <li class="mt-2"><strong>Typical range for this dog (profile model)</strong></li>
-                    <li class="text-muted">Add a valid weight to calculate typical model-based ranges.</li>
-                `;
-
-            const personalizedPanel = hasRestingHr
-                ? `
-                    <li class="mt-3"><strong>Personalized range (measured resting HR)</strong></li>
-                    <li><strong>Measured resting HR:</strong> ${Math.round(restingHr * 10) / 10} bpm</li>
-                    <li><strong>Personalized resting range:</strong> ${personalRestingLow}–${personalRestingHigh} bpm</li>
-                    <li><strong>Personalized daily range:</strong> ${personalAvgLow}–${personalAvgHigh} bpm</li>
-                    <li class="text-muted">Based on your input resting HR and used as the monitoring baseline.</li>
-                `
-                : `
-                    <li class="mt-3"><strong>Personalized range (measured resting HR)</strong></li>
-                    <li class="text-muted">Enter measured resting HR to enable personalized baseline ranges.</li>
-                `;
-
             hrSummaryList.innerHTML = `
-                ${modelPanel}
-                ${personalizedPanel}
+                <li><strong>${baselineLabel} HR:</strong> ${Math.round(baseline * 10) / 10} bpm</li>
+                <li><strong>Ideal resting range (placeholder):</strong> ${restingLow}–${restingHigh} bpm</li>
+                <li><strong>Ideal typical daily range (placeholder):</strong> ${avgLow}–${avgHigh} bpm</li>
                 ${breedNote}
             `;
         }
