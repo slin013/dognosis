@@ -48,6 +48,8 @@ const HR_PRED_AGE_PER_DAY = 0.002;
 /** Typical daily band vs predicted baseline (same as profile “ideal typical daily” placeholders) */
 const HR_STATUS_LOW_BELOW_PRED = 15;
 const HR_STATUS_HIGH_ABOVE_PRED = 35;
+const HR_STATUS_LOW_MULT_RESTING = 0.7;
+const HR_STATUS_HIGH_MULT_RESTING = 1.5;
 
 const HR_PRED_BREED_COEFFS = {
     border_collie: -7.777,
@@ -189,11 +191,27 @@ function updateHeartRateCard(latestSample) {
 
     const profile = getDogProfileForHr();
     const predicted = computePredictedHrFromProfile(profile);
+    const resting = profile && Number.isFinite(Number(profile.dogRestingHr))
+        ? Number(profile.dogRestingHr)
+        : null;
 
     let statusText = "Normal";
     let badgeClass = "badge bg-success";
 
-    if (predicted != null) {
+    if (resting != null && resting > 0) {
+        const lowBelow = resting * HR_STATUS_LOW_MULT_RESTING;
+        const highAbove = resting * HR_STATUS_HIGH_MULT_RESTING;
+        if (rounded < lowBelow) {
+            statusText = "Low";
+            badgeClass = "badge bg-warning text-dark";
+        } else if (rounded > highAbove) {
+            statusText = "High";
+            badgeClass = "badge bg-danger";
+        } else {
+            statusText = "Normal";
+            badgeClass = "badge bg-success";
+        }
+    } else if (predicted != null) {
         const lowBelow = predicted - HR_STATUS_LOW_BELOW_PRED;
         const highAbove = predicted + HR_STATUS_HIGH_ABOVE_PRED;
         if (rounded < lowBelow) {

@@ -8,10 +8,8 @@ from datetime import datetime
 
 from dognosis_db import DB_PATH as DB_NAME, ensure_schema
 from dog_profile_hr import (
-    HR_FLAG_HIGH_ABOVE_PRED,
-    HR_FLAG_LOW_BELOW_PRED,
+    compute_hr_thresholds,
     compute_predicted_hr,
-    emotional_distress_avg_threshold,
     row_tuple_to_hr_dict,
 )
 from updated_heartrate_monitor_v3 import HeartRateMonitor
@@ -188,20 +186,29 @@ try:
             rawTemp = sensor_data["raw_temperature"]
 
         cursor.execute(
-            "SELECT weight, date_of_birth, breed_code FROM dog_profile WHERE id = 1"
+            "SELECT weight, resting_hr, date_of_birth, breed_code FROM dog_profile WHERE id = 1"
         )
         prof_row = cursor.fetchone()
         prof_cols = [d[0] for d in cursor.description] if cursor.description else []
+        profile_dict = row_tuple_to_hr_dict(prof_row, prof_cols) if prof_row else None
         if prof_row:
-            pred_hr = compute_predicted_hr(row_tuple_to_hr_dict(prof_row, prof_cols))
+            pred_hr = compute_predicted_hr(profile_dict)
         else:
             pred_hr = None
 
-        if pred_hr is not None and bpm is not None and bpm > 0:
-            high_hr = int(bpm > pred_hr + HR_FLAG_HIGH_ABOVE_PRED)
-            low_hr = int(bpm < pred_hr - HR_FLAG_LOW_BELOW_PRED)
+        thresholds = compute_hr_thresholds(profile_dict, pred_hr)
+        high_threshold = thresholds["high"]
+        low_threshold = thresholds["low"]
+        emotional_distress_min_avg = thresholds["emotional_distress_min_avg"]
+        baseline_type = thresholds["baseline_type"]
+        baseline_value = thresholds["baseline_value"]
 
-        emotional_distress_min_avg = emotional_distress_avg_threshold(pred_hr)
+        if bpm is not None and bpm > 0:
+            if high_threshold is not None:
+                high_hr = int(bpm > high_threshold)
+            if low_threshold is not None:
+                low_hr = int(bpm < low_threshold)
+
         emotional_distress_history.append((timestamp, bpm, steps))
         while (
             emotional_distress_history
@@ -235,10 +242,10 @@ try:
             asymmetry,
             limp,
             rawTemp,
-            int(hrm.high_hr_flag),      # 1 if high HR, else 0
-            int(hrm.low_hr_flag),       # 1 if low HR, else 0
-            int(hrm.rapid_change_flag), # 1 if rapid BPM change, else 0
-            int(hrm.unstable_hr_flag),  # 1 if unstable HR, else 0
+            int(high_hr),               # dynamic profile/baseline threshold
+            int(low_hr),                # dynamic profile/baseline threshold
+            int(rapid_change),          # rapid BPM change from monitor
+            int(unstable_hr),           # unstable BPM from monitor
             None                        # arrhythmia intentionally left blank
         ))
 
@@ -255,15 +262,27 @@ try:
         # HR FLAGS (NEW)
         # -------------------------
         if high_hr and timestamp - last_flag_times["High HR"] > HR_COOLDOWN:
-            if pred_hr is not None and bpm is not None:
-                insert_flag("High HR", f"BPM elevated: {bpm:.1f} (pred {pred_hr:.1f})")
+            if bpm is not None and high_threshold is not None:
+                if baseline_type and baseline_value is not None:
+                    insert_flag(
+                        "High HR",
+                        f"BPM elevated: {bpm:.1f} (> {high_threshold:.1f}, {baseline_type} baseline {baseline_value:.1f})",
+                    )
+                else:
+                    insert_flag("High HR", f"BPM elevated: {bpm:.1f} (> {high_threshold:.1f})")
             else:
                 insert_flag("High HR", f"BPM elevated: {bpm:.1f}")
             last_flag_times["High HR"] = timestamp
 
         if low_hr and timestamp - last_flag_times["Low HR"] > HR_COOLDOWN:
-            if pred_hr is not None and bpm is not None:
-                insert_flag("Low HR", f"BPM low: {bpm:.1f} (pred {pred_hr:.1f})")
+            if bpm is not None and low_threshold is not None:
+                if baseline_type and baseline_value is not None:
+                    insert_flag(
+                        "Low HR",
+                        f"BPM low: {bpm:.1f} (< {low_threshold:.1f}, {baseline_type} baseline {baseline_value:.1f})",
+                    )
+                else:
+                    insert_flag("Low HR", f"BPM low: {bpm:.1f} (< {low_threshold:.1f})")
             else:
                 insert_flag("Low HR", f"BPM low: {bpm:.1f}")
             last_flag_times["Low HR"] = timestamp
