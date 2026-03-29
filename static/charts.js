@@ -25,8 +25,8 @@ const ACTIVITY_LOW_STEPS_PER_MIN = 8;
 const ACTIVITY_HIGH_STEPS_PER_MIN = 35;
 
 // Temperature (°F) — matches logger display
-const TEMP_F_LOW_MAX = 65;
-const TEMP_F_HIGH_MIN = 104;
+const TEMP_F_LOW_MAX = 32;
+const TEMP_F_HIGH_MIN = 105;
 
 // Dog profile → predicted HR (must match templates/index.html dog profile script)
 const DOG_PROFILE_STORAGE_KEY = "dogProfile";
@@ -398,6 +398,7 @@ function initChart() {
 function mapFlagTypeToLabel(flagType) {
     if (!flagType) return "Flag";
     if (flagType === "Emotional Distress") return "Emotional distress";
+    if (flagType === "Severe Low Temperature") return "Severe low temperature";
     return String(flagType).replace(/_/g, " ");
 }
 

@@ -21,13 +21,18 @@ from dual_IMU_step_counter_2 import DualIMUStepAnalyzer
 # Config / Thresholds
 # -------------------------
 
-HIGH_TEMP_THRESHOLD = 110
-LOW_TEMP_THRESHOLD = 60
+HIGH_TEMP_THRESHOLD = 105
+LOW_TEMP_THRESHOLD = 32
+SEVERE_LOW_TEMP_THRESHOLD = 10
 ASYMMETRY_THRESHOLD = 3.0
+
+# Standard high/low flags require the threshold to hold continuously for this long
+TEMP_HIGH_LOW_DURATION_SEC = 600  # 10 minutes
+# More severe cold exposure
+SEVERE_LOW_DURATION_SEC = 300  # 5 minutes
 
 HR_COOLDOWN = 300
 LIMP_COOLDOWN = 300
-TEMP_COOLDOWN = 300
 
 # Emotional Distress: elevated avg HR over a window with low step activity (placeholders — tune with data)
 EMOTIONAL_DISTRESS_WINDOW_SEC = 90
@@ -65,9 +70,18 @@ last_flag_times = {
     "Limp": 0,
     "High Temperature": 0,
     "Low Temperature": 0,
+    "Severe Low Temperature": 0,
 }
 
 emotional_distress_history = deque()
+
+# Sustained temperature conditions (reset when reading is lost or condition clears)
+high_temp_since = None
+low_temp_since = None
+severe_low_since = None
+high_temp_episode_fired = False
+low_temp_episode_fired = False
+severe_low_episode_fired = False
 
 # -------------------------
 # Sensor Manager Thread
@@ -309,14 +323,64 @@ try:
             insert_flag("Limp", "Step asymmetry exceeds threshold.")
             last_flag_times["Limp"] = timestamp
 
-        if temp is not None:
-            if temp > HIGH_TEMP_THRESHOLD and timestamp - last_flag_times["High Temperature"] > TEMP_COOLDOWN:
-                insert_flag("High Temperature", f"Temperature reached {temp:.2f}F.")
-                last_flag_times["High Temperature"] = timestamp
+        # Temperature flags: require sustained readings (timers reset if condition breaks or data is lost)
+        if temp is None:
+            high_temp_since = low_temp_since = severe_low_since = None
+            high_temp_episode_fired = low_temp_episode_fired = severe_low_episode_fired = False
+        else:
+            if temp < SEVERE_LOW_TEMP_THRESHOLD:
+                if severe_low_since is None:
+                    severe_low_since = timestamp
+                elif (
+                    not severe_low_episode_fired
+                    and (timestamp - severe_low_since) >= SEVERE_LOW_DURATION_SEC
+                ):
+                    insert_flag(
+                        "Severe Low Temperature",
+                        f"Sustained temperature below {SEVERE_LOW_TEMP_THRESHOLD:.0f}°F for over "
+                        f"{SEVERE_LOW_DURATION_SEC // 60:.0f} min (current {temp:.1f}°F).",
+                    )
+                    last_flag_times["Severe Low Temperature"] = timestamp
+                    severe_low_episode_fired = True
+            else:
+                severe_low_since = None
+                severe_low_episode_fired = False
 
-            if temp < LOW_TEMP_THRESHOLD and timestamp - last_flag_times["Low Temperature"] > TEMP_COOLDOWN:
-                insert_flag("Low Temperature", f"Temperature dropped to {temp:.2f}F.")
-                last_flag_times["Low Temperature"] = timestamp
+            if temp > HIGH_TEMP_THRESHOLD:
+                if high_temp_since is None:
+                    high_temp_since = timestamp
+                elif (
+                    not high_temp_episode_fired
+                    and (timestamp - high_temp_since) >= TEMP_HIGH_LOW_DURATION_SEC
+                ):
+                    insert_flag(
+                        "High Temperature",
+                        f"Sustained temperature above {HIGH_TEMP_THRESHOLD:.0f}°F for over "
+                        f"{TEMP_HIGH_LOW_DURATION_SEC // 60:.0f} min (current {temp:.1f}°F).",
+                    )
+                    last_flag_times["High Temperature"] = timestamp
+                    high_temp_episode_fired = True
+            else:
+                high_temp_since = None
+                high_temp_episode_fired = False
+
+            if temp < LOW_TEMP_THRESHOLD:
+                if low_temp_since is None:
+                    low_temp_since = timestamp
+                elif (
+                    not low_temp_episode_fired
+                    and (timestamp - low_temp_since) >= TEMP_HIGH_LOW_DURATION_SEC
+                ):
+                    insert_flag(
+                        "Low Temperature",
+                        f"Sustained temperature below {LOW_TEMP_THRESHOLD:.0f}°F for over "
+                        f"{TEMP_HIGH_LOW_DURATION_SEC // 60:.0f} min (current {temp:.1f}°F).",
+                    )
+                    last_flag_times["Low Temperature"] = timestamp
+                    low_temp_episode_fired = True
+            else:
+                low_temp_since = None
+                low_temp_episode_fired = False
 
         conn.commit()
 

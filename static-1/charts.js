@@ -142,8 +142,8 @@ const ACTIVITY_LOW_STEPS_PER_MIN = 8;
 const ACTIVITY_HIGH_STEPS_PER_MIN = 35;
 
 // Temperature (°F)
-const TEMP_F_LOW_MAX = 65;
-const TEMP_F_HIGH_MIN = 104;
+const TEMP_F_LOW_MAX = 32;
+const TEMP_F_HIGH_MIN = 105;
 
 // Dog profile → predicted HR (must match templates/index.html dog profile script)
 const DOG_PROFILE_STORAGE_KEY = "dogProfile";
@@ -631,6 +631,8 @@ function mapFlagTypeToLabel(flagType) {
             return "Limp / gait issue";
         case "Emotional Distress":
             return "Emotional distress";
+        case "Severe Low Temperature":
+            return "Severe low temperature";
         default:
             return flagType.replace(/_/g, " ");
     }
@@ -649,6 +651,11 @@ function buildInsightsForFlag(flag) {
     }
     if (flag.flag_type === "temp_low" || (temp != null && temp < 36.5)) {
         insights.push("Temperature is low; underheating or exposure to cold may be an issue.");
+    }
+    if (flag.flag_type === "Severe Low Temperature" || (temp != null && temp < -12.2)) {
+        insights.push(
+            "Sustained extreme cold; hypothermia risk. Provide warmth, shelter, and veterinary guidance if concerned."
+        );
     }
     if (flag.flag_type === "hr_high" || (bpm != null && bpm > 160)) {
         insights.push("Heart rate is high relative to baseline; may indicate stress, pain, or heavy exertion.");

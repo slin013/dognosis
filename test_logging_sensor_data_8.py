@@ -12,8 +12,8 @@ import threading
 # -------------------------
 from dognosis_db import DB_PATH as DB_NAME
 
-HIGH_TEMP_THRESHOLD = 110
-LOW_TEMP_THRESHOLD = 60
+HIGH_TEMP_THRESHOLD = 105
+LOW_TEMP_THRESHOLD = 32
 ASYMMETRY_THRESHOLD = 3.0
 
 ARRHYTHMIA_COOLDOWN = 300
