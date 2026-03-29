@@ -137,7 +137,26 @@ const dashboardState = {
     // Tracks which flag currently has incident data loaded in the table.
     incidentDataLoadedForFlagId: null,
 };
+
+/** `flag_type` values that always get filter checkboxes (even with no matching rows yet). */
+const ALWAYS_DEVICE_FLAG_FILTER_TYPES = [
+    "High Temperature",
+    "Low Temperature",
+    "Severe Low Temperature",
+];
+const ALWAYS_DEVICE_FLAG_FILTER_SET = new Set(ALWAYS_DEVICE_FLAG_FILTER_TYPES);
+
 let incidentDataRequestToken = 0;
+
+function syncFlagFilterCheckboxStates(rootEl) {
+    if (!rootEl) return;
+    const inputs = rootEl.querySelectorAll('input[type="checkbox"][data-flag-type]');
+    inputs.forEach((inp) => {
+        const t = String(inp.dataset.flagType || "");
+        inp.checked =
+            dashboardState.selectedFlagTypes == null || dashboardState.selectedFlagTypes.has(t);
+    });
+}
 
 function setConnectionStatus(isOnline) {
     const badge = document.getElementById("connectionStatus");
@@ -703,53 +722,90 @@ function initIncidentDataLoadButton() {
 
 function ensureFlagTypeFilterUI(deviceFlags) {
     const container = document.getElementById("flagTypeCheckboxes");
+    const otherEl = document.getElementById("flagTypeCheckboxesOther");
     const statusEl = document.getElementById("flagTypeFilterStatus");
     if (!container) return;
 
-    const types = [
-        ...new Set(
-            (deviceFlags || [])
-                .map((f) => (f && f.flag_type != null ? String(f.flag_type) : null))
-                .filter((t) => t && t.trim() !== "")
-        ),
-    ];
+    const fromData = new Set(
+        (deviceFlags || [])
+            .map((f) => (f && f.flag_type != null ? String(f.flag_type) : null))
+            .filter((t) => t && t.trim() !== "")
+    );
 
-    // Sort by display label for a stable, human-friendly order.
-    types.sort((a, b) => mapFlagTypeToLabel(a).localeCompare(mapFlagTypeToLabel(b)));
-    const typesKey = types.join("|");
-    dashboardState.availableFlagTypes = types;
+    if (otherEl) {
+        // Temperature filters live in the template (`flagTypeCheckboxesTempGroup`); only fill "other" types here.
+        const dynamicTypes = [...fromData].filter((t) => !ALWAYS_DEVICE_FLAG_FILTER_SET.has(t));
+        dynamicTypes.sort((a, b) => mapFlagTypeToLabel(a).localeCompare(mapFlagTypeToLabel(b)));
+        const typesKey = dynamicTypes.join("|");
+        dashboardState.availableFlagTypes = [...ALWAYS_DEVICE_FLAG_FILTER_TYPES, ...dynamicTypes];
 
-    if (dashboardState._flagTypeFilterTypesKey !== typesKey) {
-        container.innerHTML = "";
+        if (dashboardState._flagTypeFilterTypesKey !== typesKey) {
+            otherEl.innerHTML = "";
+            if (dynamicTypes.length > 0) {
+                dynamicTypes.forEach((flagType, idx) => {
+                    const checkboxId = `flagTypeCheckboxOther_${idx}`;
+                    const wrapper = document.createElement("div");
+                    wrapper.className = "form-check";
 
-        if (types.length === 0) {
-            container.innerHTML =
-                '<div class="text-muted small">No device flags available for filtering.</div>';
-        } else {
-        types.forEach((flagType, idx) => {
-            const checkboxId = `flagTypeCheckbox_${idx}`;
-            const wrapper = document.createElement("div");
-            wrapper.className = "form-check";
+                    const input = document.createElement("input");
+                    input.type = "checkbox";
+                    input.className = "form-check-input";
+                    input.id = checkboxId;
+                    input.dataset.flagType = flagType;
 
-            const input = document.createElement("input");
-            input.type = "checkbox";
-            input.className = "form-check-input";
-            input.id = checkboxId;
-            input.dataset.flagType = flagType;
-            input.checked = dashboardState.selectedFlagTypes == null || dashboardState.selectedFlagTypes.has(flagType);
+                    const label = document.createElement("label");
+                    label.className = "form-check-label";
+                    label.htmlFor = checkboxId;
+                    label.textContent = mapFlagTypeToLabel(flagType);
 
-            const label = document.createElement("label");
-            label.className = "form-check-label";
-            label.htmlFor = checkboxId;
-            label.textContent = mapFlagTypeToLabel(flagType);
-
-            wrapper.appendChild(input);
-            wrapper.appendChild(label);
-            container.appendChild(wrapper);
-        });
+                    wrapper.appendChild(input);
+                    wrapper.appendChild(label);
+                    otherEl.appendChild(wrapper);
+                });
+            }
+            dashboardState._flagTypeFilterTypesKey = typesKey;
         }
+        syncFlagFilterCheckboxStates(container);
+    } else {
+        // Legacy: single container, no fixed temperature row in template
+        ALWAYS_DEVICE_FLAG_FILTER_TYPES.forEach((t) => fromData.add(t));
+        const types = [...fromData];
+        types.sort((a, b) => mapFlagTypeToLabel(a).localeCompare(mapFlagTypeToLabel(b)));
+        const typesKey = types.join("|");
+        dashboardState.availableFlagTypes = types;
 
-        dashboardState._flagTypeFilterTypesKey = typesKey;
+        if (dashboardState._flagTypeFilterTypesKey !== typesKey) {
+            container.innerHTML = "";
+
+            if (types.length === 0) {
+                container.innerHTML =
+                    '<div class="text-muted small">No device flags available for filtering.</div>';
+            } else {
+                types.forEach((flagType, idx) => {
+                    const checkboxId = `flagTypeCheckbox_${idx}`;
+                    const wrapper = document.createElement("div");
+                    wrapper.className = "form-check";
+
+                    const input = document.createElement("input");
+                    input.type = "checkbox";
+                    input.className = "form-check-input";
+                    input.id = checkboxId;
+                    input.dataset.flagType = flagType;
+
+                    const label = document.createElement("label");
+                    label.className = "form-check-label";
+                    label.htmlFor = checkboxId;
+                    label.textContent = mapFlagTypeToLabel(flagType);
+
+                    wrapper.appendChild(input);
+                    wrapper.appendChild(label);
+                    container.appendChild(wrapper);
+                });
+            }
+
+            dashboardState._flagTypeFilterTypesKey = typesKey;
+        }
+        syncFlagFilterCheckboxStates(container);
     }
 
     // Attach event handler once (event delegation via `change` bubbling).

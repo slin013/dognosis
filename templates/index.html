@@ -259,10 +259,54 @@
                                         </div>
                                         <div
                                             id="flagTypeCheckboxes"
-                                            class="d-flex flex-wrap gap-3"
+                                            class="d-flex flex-wrap gap-3 align-items-start"
                                             aria-label="Filter by flag type"
                                             role="group"
-                                        ></div>
+                                        >
+                                            <div
+                                                id="flagTypeCheckboxesTempGroup"
+                                                class="d-flex flex-wrap gap-3 align-items-center border-end border-secondary border-opacity-25 pe-3 me-1"
+                                            >
+                                                <span class="text-muted small text-nowrap">Temperature</span>
+                                                <div class="form-check">
+                                                    <input
+                                                        class="form-check-input"
+                                                        type="checkbox"
+                                                        id="flagFilterHighTemp"
+                                                        data-flag-type="High Temperature"
+                                                        checked
+                                                    />
+                                                    <label class="form-check-label" for="flagFilterHighTemp"
+                                                        >High</label
+                                                    >
+                                                </div>
+                                                <div class="form-check">
+                                                    <input
+                                                        class="form-check-input"
+                                                        type="checkbox"
+                                                        id="flagFilterLowTemp"
+                                                        data-flag-type="Low Temperature"
+                                                        checked
+                                                    />
+                                                    <label class="form-check-label" for="flagFilterLowTemp"
+                                                        >Low</label
+                                                    >
+                                                </div>
+                                                <div class="form-check">
+                                                    <input
+                                                        class="form-check-input"
+                                                        type="checkbox"
+                                                        id="flagFilterSevereLowTemp"
+                                                        data-flag-type="Severe Low Temperature"
+                                                        checked
+                                                    />
+                                                    <label class="form-check-label" for="flagFilterSevereLowTemp"
+                                                        >Extreme low</label
+                                                    >
+                                                </div>
+                                            </div>
+                                            <div id="flagTypeCheckboxesOther" class="d-flex flex-wrap gap-3"></div>
+                                        </div>
                                     </div>
 
                             <div class="text-muted small mb-2">Device flagged incidents</div>
