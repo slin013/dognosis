@@ -161,12 +161,15 @@ def flags_list():
     """Recent flags for the Overview sidebar."""
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT id, timestamp, flag_type, description
         FROM flags
+        WHERE flag_type != 'Arrhythmia'
         ORDER BY timestamp DESC
         LIMIT 50
-    """)
+        """
+    )
     rows = cursor.fetchall()
     conn.close()
     return jsonify(
@@ -209,6 +212,7 @@ def flags_summary():
                 ORDER BY sd.timestamp DESC
                 LIMIT 1
             )
+        WHERE f.flag_type != 'Arrhythmia'
         ORDER BY f.timestamp DESC
         LIMIT 200
         """

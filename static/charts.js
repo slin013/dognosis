@@ -8,10 +8,21 @@
 // - tempCardValue, tempCardStatus
 // - flagsList
 
-async function fetchJson(url) {
-    const response = await fetch(url, { cache: "no-store" });
-    if (!response.ok) throw new Error(`HTTP ${response.status} for ${url}`);
-    return response.json();
+const LIVE_DATA_TIMEOUT_MS = 5000;
+const SAMPLE_STALE_AFTER_SEC = 12;
+
+let updateChartInFlight = false;
+
+async function fetchJson(url, timeoutMs = LIVE_DATA_TIMEOUT_MS) {
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+    try {
+        const response = await fetch(url, { cache: "no-store", signal: controller.signal });
+        if (!response.ok) throw new Error(`HTTP ${response.status} for ${url}`);
+        return await response.json();
+    } finally {
+        window.clearTimeout(timeoutId);
+    }
 }
 
 let hrChart = null;
@@ -34,9 +45,11 @@ const HR_PRED_MEAN = 114;
 const HR_PRED_MEAN_WEIGHT_KG = 19.3;
 const HR_PRED_WEIGHT_SLOPE = -0.21;
 const HR_PRED_AGE_PER_DAY = 0.002;
-/** Typical daily band vs predicted baseline (same as profile “ideal typical daily” placeholders) */
-const HR_STATUS_LOW_BELOW_PRED = 15;
-const HR_STATUS_HIGH_ABOVE_PRED = 35;
+/** HR card bands vs predicted baseline (same as profile resting/active ranges) */
+const HR_BAND_RESTING_LOWER_SUB = 40;
+const HR_BAND_RESTING_UPPER_SUB = 10;
+const HR_BAND_ACTIVE_LOWER_ADD = 10;
+const HR_BAND_ACTIVE_UPPER_ADD = 40;
 
 const HR_PRED_BREED_COEFFS = {
     border_collie: -7.777,
@@ -116,6 +129,13 @@ const dashboardState = {
     deviceFlags: [],
     userFlags: [],
     selectedFlag: null,
+    // `selectedFlagTypes === null` means "show all flag types".
+    availableFlagTypes: [],
+    selectedFlagTypes: null,
+    _flagTypeFilterTypesKey: "",
+    _flagTypeFilterHandlerAttached: false,
+    // Tracks which flag currently has incident data loaded in the table.
+    incidentDataLoadedForFlagId: null,
 };
 let incidentDataRequestToken = 0;
 
@@ -131,10 +151,21 @@ function setConnectionStatus(isOnline) {
     }
 }
 
-function setLastUpdated() {
+function setLastUpdated(latestSampleTsSeconds = null, latestSampleAgeSec = null) {
     const el = document.getElementById("lastUpdatedText");
     if (!el) return;
-    el.textContent = `Updated at ${new Date().toLocaleTimeString()}`;
+    const now = new Date();
+    if (latestSampleTsSeconds == null || !Number.isFinite(Number(latestSampleTsSeconds))) {
+        el.textContent = `Updated at ${now.toLocaleTimeString()}`;
+        return;
+    }
+
+    const latestStr = new Date(Number(latestSampleTsSeconds) * 1000).toLocaleTimeString();
+    const ageStr =
+        latestSampleAgeSec == null || !Number.isFinite(Number(latestSampleAgeSec))
+            ? ""
+            : ` (${Math.floor(Number(latestSampleAgeSec))}s ago)`;
+    el.textContent = `Updated at ${now.toLocaleTimeString()} • Latest sample: ${latestStr}${ageStr}`;
 }
 
 function updateHeartRateCard(latestSample) {
@@ -165,17 +196,25 @@ function updateHeartRateCard(latestSample) {
     let badgeClass = "badge bg-success";
 
     if (predicted != null) {
-        const lowBelow = predicted - HR_STATUS_LOW_BELOW_PRED;
-        const highAbove = predicted + HR_STATUS_HIGH_ABOVE_PRED;
-        if (rounded < lowBelow) {
+        const restLo = predicted - HR_BAND_RESTING_LOWER_SUB;
+        const restHi = predicted - HR_BAND_RESTING_UPPER_SUB;
+        const actLo = predicted + HR_BAND_ACTIVE_LOWER_ADD;
+        const actHi = predicted + HR_BAND_ACTIVE_UPPER_ADD;
+        if (rounded < restLo) {
             statusText = "Low";
             badgeClass = "badge bg-warning text-dark";
-        } else if (rounded > highAbove) {
+        } else if (rounded <= restHi) {
+            statusText = "Resting";
+            badgeClass = "badge bg-success";
+        } else if (rounded < actLo) {
+            statusText = "Normal";
+            badgeClass = "badge bg-info text-dark";
+        } else if (rounded <= actHi) {
+            statusText = "Active";
+            badgeClass = "badge bg-primary";
+        } else {
             statusText = "High";
             badgeClass = "badge bg-danger";
-        } else {
-            statusText = "Normal";
-            badgeClass = "badge bg-success";
         }
     } else {
         if (rounded < 50) {
@@ -487,6 +526,8 @@ async function loadIncidentDataForFlag(flag) {
         const payload = await fetchJson(`/incident-context/${flag.id}?window_minutes=15`);
         if (thisRequestToken !== incidentDataRequestToken) return;
         renderIncidentDataRows(payload.samples || []);
+        dashboardState.incidentDataLoadedForFlagId =
+            flag && flag.id != null ? Number(flag.id) : null;
     } catch (err) {
         if (thisRequestToken !== incidentDataRequestToken) return;
         loadingEl.classList.add("d-none");
@@ -494,6 +535,19 @@ async function loadIncidentDataForFlag(flag) {
         tbody.innerHTML =
             '<tr><td colspan="6" class="text-danger">Failed to load incident data</td></tr>';
     }
+}
+
+function resetIncidentDataTableForSelection() {
+    const tbody = document.getElementById("flagIncidentDataBody");
+    const emptyEl = document.getElementById("flagIncidentDataEmpty");
+    const loadingEl = document.getElementById("flagIncidentDataLoading");
+    if (!tbody || !emptyEl || !loadingEl) return;
+
+    loadingEl.classList.add("d-none");
+    emptyEl.classList.add("d-none");
+    dashboardState.incidentDataLoadedForFlagId = null;
+    tbody.innerHTML =
+        '<tr><td colspan="6" class="text-muted">Click “Load / refresh incident data” to fetch samples for this incident.</td></tr>';
 }
 
 function renderFlagDetail() {
@@ -505,6 +559,7 @@ function renderFlagDetail() {
     if (!flag) {
         emptyEl.classList.remove("d-none");
         contentEl.classList.add("d-none");
+        dashboardState.incidentDataLoadedForFlagId = null;
         return;
     }
 
@@ -531,7 +586,10 @@ function renderFlagDetail() {
     if (metricsEl) {
         const parts = [];
         if (flag.bpm != null) parts.push(`${Math.round(flag.bpm)} bpm`);
-        if (flag.temperature != null) parts.push(`${Number(flag.temperature).toFixed(1)} °C`);
+        if (flag.temperature != null) {
+            const n = Number(flag.temperature);
+            if (Number.isFinite(n)) parts.push(`${n.toFixed(1)} °F`);
+        }
         if (flag.step_count != null) parts.push(`${flag.step_count} steps`);
         if (flag.limp === 1) parts.push("limp");
         if (flag.asymmetry != null) parts.push(`asym ${Number(flag.asymmetry).toFixed(2)}`);
@@ -542,7 +600,17 @@ function renderFlagDetail() {
         descEl.textContent = flag.description || "No additional description.";
     }
 
-    loadIncidentDataForFlag(flag);
+    // Do not auto-load incident context; wait for explicit user action.
+    // Also, avoid clearing the table on background refreshes if we already
+    // loaded data for this flag.
+    const currentLoadedId =
+        dashboardState.incidentDataLoadedForFlagId != null
+            ? Number(dashboardState.incidentDataLoadedForFlagId)
+            : null;
+    const thisFlagId = flag && flag.id != null ? Number(flag.id) : null;
+    if (currentLoadedId !== thisFlagId) {
+        resetIncidentDataTableForSelection();
+    }
 }
 
 function renderFlagsTable(tbodyId, flags) {
@@ -573,7 +641,10 @@ function renderFlagsTable(tbodyId, flags) {
         const detailCell = document.createElement("td");
         const parts = [];
         if (flag.bpm != null) parts.push(`${Math.round(flag.bpm)} bpm`);
-        if (flag.temperature != null) parts.push(`${Number(flag.temperature).toFixed(1)} °C`);
+        if (flag.temperature != null) {
+            const n = Number(flag.temperature);
+            if (Number.isFinite(n)) parts.push(`${n.toFixed(1)} °F`);
+        }
         if (flag.step_count != null) parts.push(`${flag.step_count} steps`);
         if (flag.limp === 1) parts.push("limp");
         if (flag.asymmetry != null) parts.push(`asym ${Number(flag.asymmetry).toFixed(2)}`);
@@ -621,6 +692,143 @@ function highlightSelectedFlag() {
     });
 }
 
+function initIncidentDataLoadButton() {
+    const btn = document.getElementById("loadIncidentDataButton");
+    if (!btn) return;
+    btn.addEventListener("click", () => {
+        const flag = dashboardState.selectedFlag;
+        loadIncidentDataForFlag(flag);
+    });
+}
+
+function ensureFlagTypeFilterUI(deviceFlags) {
+    const container = document.getElementById("flagTypeCheckboxes");
+    const statusEl = document.getElementById("flagTypeFilterStatus");
+    if (!container) return;
+
+    const types = [
+        ...new Set(
+            (deviceFlags || [])
+                .map((f) => (f && f.flag_type != null ? String(f.flag_type) : null))
+                .filter((t) => t && t.trim() !== "")
+        ),
+    ];
+
+    // Sort by display label for a stable, human-friendly order.
+    types.sort((a, b) => mapFlagTypeToLabel(a).localeCompare(mapFlagTypeToLabel(b)));
+    const typesKey = types.join("|");
+    dashboardState.availableFlagTypes = types;
+
+    if (dashboardState._flagTypeFilterTypesKey !== typesKey) {
+        container.innerHTML = "";
+
+        if (types.length === 0) {
+            container.innerHTML =
+                '<div class="text-muted small">No device flags available for filtering.</div>';
+        } else {
+        types.forEach((flagType, idx) => {
+            const checkboxId = `flagTypeCheckbox_${idx}`;
+            const wrapper = document.createElement("div");
+            wrapper.className = "form-check";
+
+            const input = document.createElement("input");
+            input.type = "checkbox";
+            input.className = "form-check-input";
+            input.id = checkboxId;
+            input.dataset.flagType = flagType;
+            input.checked = dashboardState.selectedFlagTypes == null || dashboardState.selectedFlagTypes.has(flagType);
+
+            const label = document.createElement("label");
+            label.className = "form-check-label";
+            label.htmlFor = checkboxId;
+            label.textContent = mapFlagTypeToLabel(flagType);
+
+            wrapper.appendChild(input);
+            wrapper.appendChild(label);
+            container.appendChild(wrapper);
+        });
+        }
+
+        dashboardState._flagTypeFilterTypesKey = typesKey;
+    }
+
+    // Attach event handler once (event delegation via `change` bubbling).
+    if (!dashboardState._flagTypeFilterHandlerAttached) {
+        container.addEventListener("change", (ev) => {
+            const target = ev.target;
+            if (!(target instanceof HTMLInputElement)) return;
+            if (!target.matches('input[data-flag-type]')) return;
+
+            const inputs = container.querySelectorAll('input[type="checkbox"][data-flag-type]');
+            const checkedTypes = [];
+            inputs.forEach((inp) => {
+                if (inp.checked) checkedTypes.push(String(inp.dataset.flagType || ""));
+            });
+
+            // If everything is checked, switch back to "show all".
+            if (dashboardState.availableFlagTypes.length > 0 && checkedTypes.length === dashboardState.availableFlagTypes.length) {
+                dashboardState.selectedFlagTypes = null;
+            } else {
+                dashboardState.selectedFlagTypes = new Set(checkedTypes);
+            }
+
+            applyFlagTypeFilterAndRender();
+        });
+        dashboardState._flagTypeFilterHandlerAttached = true;
+    }
+
+    if (statusEl) {
+        if (dashboardState.selectedFlagTypes == null) {
+            statusEl.textContent = dashboardState.availableFlagTypes.length
+                ? `All (${dashboardState.availableFlagTypes.length})`
+                : "No device flag types";
+        } else {
+            statusEl.textContent = `Selected (${dashboardState.selectedFlagTypes.size})`;
+        }
+    }
+}
+
+function applyFlagTypeFilterAndRender() {
+    const deviceTbody = document.getElementById("deviceFlagsTableBody");
+    const userTbody = document.getElementById("userFlagsTableBody");
+    if (!deviceTbody || !userTbody) return;
+
+    const selectedTypes = dashboardState.selectedFlagTypes;
+    const filterFn = (f) => {
+        if (!f) return false;
+        if (selectedTypes == null) return true;
+        const t = f.flag_type != null ? String(f.flag_type) : "";
+        return selectedTypes.has(t);
+    };
+
+    const deviceFiltered = (dashboardState.deviceFlags || []).filter(filterFn);
+    // Per requirement: checkbox filter should ONLY apply to device incidents.
+    const userFiltered = dashboardState.userFlags || [];
+
+    // Preserve the server-provided timestamp order by filtering only (no re-sorting).
+    renderFlagsTable("deviceFlagsTableBody", deviceFiltered);
+    renderFlagsTable("userFlagsTableBody", userFiltered);
+
+    // Ensure the selected incident is still visible after filtering.
+    const selectedId =
+        dashboardState.selectedFlag && dashboardState.selectedFlag.id != null
+            ? String(dashboardState.selectedFlag.id)
+            : null;
+
+    let nextSelected =
+        selectedId != null
+            ? [...deviceFiltered, ...userFiltered].find((f) => String(f.id) === selectedId)
+            : null;
+
+    if (!nextSelected) {
+        nextSelected = deviceFiltered[0] || userFiltered[0] || null;
+    }
+
+    dashboardState.selectedFlag = nextSelected;
+    highlightSelectedFlag();
+    renderFlagDetail();
+}
+
 async function loadFlagsSummary() {
     try {
         const data = await fetchJson("/flags-summary");
@@ -632,25 +840,18 @@ async function loadFlagsSummary() {
         dashboardState.deviceFlags = deviceFlags;
         dashboardState.userFlags = userFlags;
 
-        renderFlagsTable("deviceFlagsTableBody", deviceFlags);
-        renderFlagsTable("userFlagsTableBody", userFlags);
-
+        // If we have a selected flag, try to resolve it to the latest full object from the DB.
         const selectedId =
             dashboardState.selectedFlag && dashboardState.selectedFlag.id != null
                 ? String(dashboardState.selectedFlag.id)
                 : null;
-
         if (selectedId) {
             const match = [...deviceFlags, ...userFlags].find((f) => String(f.id) === selectedId);
-            if (match) dashboardState.selectedFlag = match;
+            dashboardState.selectedFlag = match || null;
         }
 
-        if (!dashboardState.selectedFlag) {
-            dashboardState.selectedFlag = deviceFlags[0] || userFlags[0] || null;
-        }
-
-        highlightSelectedFlag();
-        renderFlagDetail();
+        ensureFlagTypeFilterUI(deviceFlags);
+        applyFlagTypeFilterAndRender();
     } catch (err) {
         console.error("Error loading flags summary", err);
         const dTbody = document.getElementById("deviceFlagsTableBody");
@@ -827,6 +1028,8 @@ function initEditDeleteFlagModal() {
 }
 
 async function updateChart() {
+    if (updateChartInFlight) return;
+    updateChartInFlight = true;
     try {
         const data = await fetchJson("/live-data");
 
@@ -846,7 +1049,7 @@ async function updateChart() {
                 tempChart.data.datasets[0].data = [];
                 tempChart.update();
             }
-            setConnectionStatus(true);
+            setConnectionStatus(false);
             setLastUpdated();
             updateHeartRateCard(null);
             updateActivityTempCards(null, null);
@@ -894,11 +1097,19 @@ async function updateChart() {
         updateHeartRateCard(latestSample);
         updateActivityTempCards(latestSample, data);
 
-        setConnectionStatus(true);
-        setLastUpdated();
+        const latestTs = latestSample?.timestamp ?? latestSample?.[0];
+        const latestAgeSec =
+            latestTs != null && Number.isFinite(Number(latestTs)) ? nowSec - Math.floor(Number(latestTs)) : null;
+
+        const isFresh = latestAgeSec == null ? true : latestAgeSec <= SAMPLE_STALE_AFTER_SEC;
+        setConnectionStatus(isFresh);
+        setLastUpdated(latestTs, latestAgeSec);
     } catch (err) {
         console.error("Error updating chart", err);
         setConnectionStatus(false);
+        setLastUpdated();
+    } finally {
+        updateChartInFlight = false;
     }
 }
 
@@ -978,6 +1189,7 @@ function start() {
     initTimeWindowButtons();
     initAddFlagModal();
     initEditDeleteFlagModal();
+    initIncidentDataLoadButton();
     updateChart();
     updateFlags();
     loadFlagsSummary();
