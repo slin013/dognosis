@@ -829,6 +829,10 @@ function ensureFlagTypeFilterUI(deviceFlags) {
             // If everything is checked, switch back to "show all".
             if (dashboardState.availableFlagTypes.length > 0 && checkedTypes.length === dashboardState.availableFlagTypes.length) {
                 dashboardState.selectedFlagTypes = null;
+            } else if (checkedTypes.length === 0) {
+                // Nothing checked would hide all device rows; treat as show all.
+                dashboardState.selectedFlagTypes = null;
+                syncFlagFilterCheckboxStates(container);
             } else {
                 dashboardState.selectedFlagTypes = new Set(checkedTypes);
             }
@@ -849,12 +853,22 @@ function ensureFlagTypeFilterUI(deviceFlags) {
     }
 }
 
+function isUserGeneratedFlag(f) {
+    return f != null && Number(f.is_user_generated) === 1;
+}
+
 function applyFlagTypeFilterAndRender() {
     const deviceTbody = document.getElementById("deviceFlagsTableBody");
     const userTbody = document.getElementById("userFlagsTableBody");
     if (!deviceTbody || !userTbody) return;
 
-    const selectedTypes = dashboardState.selectedFlagTypes;
+    let selectedTypes = dashboardState.selectedFlagTypes;
+    // Empty selection would hide every row; treat as "show all".
+    if (selectedTypes != null && selectedTypes.size === 0) {
+        selectedTypes = null;
+        dashboardState.selectedFlagTypes = null;
+    }
+
     const filterFn = (f) => {
         if (!f) return false;
         if (selectedTypes == null) return true;
@@ -895,8 +909,9 @@ async function loadFlagsSummary() {
         const data = await fetchJson("/flags-summary", FLAGS_INCIDENT_FETCH_TIMEOUT_MS);
         if (!Array.isArray(data)) throw new Error("Unexpected flags-summary payload");
 
-        const deviceFlags = data.filter((f) => Number(f.is_user_generated) === 0);
-        const userFlags = data.filter((f) => Number(f.is_user_generated) === 1);
+        // User rows are exactly is_user_generated === 1; everything else is device (null/0/missing).
+        const deviceFlags = data.filter((f) => !isUserGeneratedFlag(f));
+        const userFlags = data.filter((f) => isUserGeneratedFlag(f));
 
         dashboardState.deviceFlags = deviceFlags;
         dashboardState.userFlags = userFlags;
