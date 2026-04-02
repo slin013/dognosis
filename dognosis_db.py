@@ -4,8 +4,21 @@ Call ensure_schema() once before queries that need HR flag columns.
 """
 import os
 import sqlite3
+import threading
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dog_harness.db")
+
+# SQLite is single-writer; WAL + busy timeout reduce "database is locked" under
+# concurrent readers (web) and writers (sensor loggers). Schema init once per process
+# avoids running migrations on every HTTP request.
+_SCHEMA_LOCK = threading.Lock()
+_schema_ready = False
+
+
+def configure_connection(conn: sqlite3.Connection) -> None:
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA synchronous=NORMAL")
+    conn.execute("PRAGMA busy_timeout=30000")
 
 
 def ensure_schema(conn: sqlite3.Connection) -> None:
@@ -97,6 +110,15 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
 
 
 def connect():
-    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
-    ensure_schema(conn)
+    global _schema_ready
+    conn = sqlite3.connect(
+        DB_PATH,
+        check_same_thread=False,
+        timeout=30.0,
+    )
+    configure_connection(conn)
+    with _SCHEMA_LOCK:
+        if not _schema_ready:
+            ensure_schema(conn)
+            _schema_ready = True
     return conn

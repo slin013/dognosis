@@ -7,7 +7,7 @@ from typing import Optional
 from flask import Flask, jsonify, render_template, request
 import sqlite3
 
-from dognosis_db import DB_PATH, ensure_schema
+from dognosis_db import DB_PATH, connect as get_db
 from dog_profile_hr import age_days_from_dob
 
 BREED_LABELS = {
@@ -68,12 +68,6 @@ else:
         static_folder=_STATIC_DIR_FALLBACK,
         static_url_path="/static",
     )
-
-
-def get_db():
-    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
-    ensure_schema(conn)
-    return conn
 
 
 @app.route("/")
@@ -526,7 +520,5 @@ def dog_profile():
 
 if __name__ == "__main__":
     os.makedirs(os.path.dirname(DB_PATH) or ".", exist_ok=True)
-    _c = sqlite3.connect(DB_PATH)
-    ensure_schema(_c)
-    _c.close()
+    get_db().close()
     app.run(host="0.0.0.0", port=5000, debug=True)
