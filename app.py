@@ -51,23 +51,32 @@ _STATIC_DIR_1 = _STATIC_DIR
 _TEMPLATE_DIR_FALLBACK = os.path.join(_BASE_DIR, "templates")
 _STATIC_DIR_FALLBACK = os.path.join(_BASE_DIR, "static")
 
-_USE_TEMPLATE_1 = os.path.exists(os.path.join(_TEMPLATE_DIR_1, "index.html"))
+_HAS_TEMPLATES = os.path.exists(os.path.join(_TEMPLATE_DIR_FALLBACK, "index.html"))
+_HAS_TEMPLATES_1 = os.path.exists(os.path.join(_TEMPLATE_DIR_1, "index.html"))
 _USE_STATIC_1 = os.path.isdir(_STATIC_DIR_1)
 
-if _USE_TEMPLATE_1 and _USE_STATIC_1:
-    app = Flask(
-        __name__,
-        template_folder=_TEMPLATE_DIR_1,
-        static_folder=_STATIC_DIR_1,
-        static_url_path="/static-1",
-    )
+# Prefer `templates/` when present so dashboard HTML in the repo is what Flask serves
+# (avoids stale `templates-1/index.html` shadowing edits when both folders exist on device).
+if _HAS_TEMPLATES:
+    _template_folder = _TEMPLATE_DIR_FALLBACK
+elif _HAS_TEMPLATES_1:
+    _template_folder = _TEMPLATE_DIR_1
 else:
-    app = Flask(
-        __name__,
-        template_folder=_TEMPLATE_DIR_FALLBACK,
-        static_folder=_STATIC_DIR_FALLBACK,
-        static_url_path="/static",
-    )
+    _template_folder = _TEMPLATE_DIR_FALLBACK
+
+if _USE_STATIC_1:
+    _static_folder = _STATIC_DIR_1
+    _static_url_path = "/static-1"
+else:
+    _static_folder = _STATIC_DIR_FALLBACK
+    _static_url_path = "/static"
+
+app = Flask(
+    __name__,
+    template_folder=_template_folder,
+    static_folder=_static_folder,
+    static_url_path=_static_url_path,
+)
 
 
 @app.route("/")

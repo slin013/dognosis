@@ -15,10 +15,38 @@
         crossorigin="anonymous"
     >
 
+    <style>
+        /* Soft sage page backdrop (pastel — keeps Bootstrap badge greens readable) */
+        html {
+            height: 100%;
+        }
+        body.app-shell {
+            min-height: 100%;
+            margin: 0;
+            background-color: #e6f0e8;
+            background-image: linear-gradient(
+                165deg,
+                #f1f7f2 0%,
+                #e6f0e8 38%,
+                #d4e8d6 72%,
+                #c5ddc8 100%
+            );
+            background-attachment: fixed;
+            color: var(--bs-body-color);
+        }
+        .app-shell .card {
+            border-color: rgba(30, 55, 40, 0.1);
+            box-shadow: 0 0.125rem 0.375rem rgba(25, 50, 35, 0.07);
+        }
+        .app-shell .nav-tabs {
+            border-bottom-color: rgba(30, 55, 40, 0.12);
+        }
+    </style>
+
     <!-- Chart.js for time‑series plots -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body class="bg-light">
+<body class="app-shell">
 
 <div class="container py-4">
     <!-- Top bar -->
@@ -359,10 +387,7 @@
                 <div class="col-12">
                     <div class="card h-100">
                         <div class="card-body">
-                            <h5 class="card-title mb-3">Dog Parameters</h5>
-                            <p class="text-muted mb-4">
-                                These settings are stored locally in your browser for now. Backend wiring comes later.
-                            </p>
+                            <h5 class="card-title mb-4">Dog Parameters</h5>
 
                             <form id="dogProfileForm">
                                 <div class="row g-3">
@@ -563,7 +588,7 @@
 </div>
 
 <!-- App scripts -->
-<script src="/static/charts.js"></script>
+<script src="{{ url_for('static', filename='charts.js') }}"></script>
 
 <!-- Dog profile: GET/POST /dog-profile + localStorage mirror for charts -->
 <script>

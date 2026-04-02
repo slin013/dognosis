@@ -9,6 +9,8 @@
 // - flagsList
 
 const LIVE_DATA_TIMEOUT_MS = 5000;
+/** Flags summary + incident-context queries can exceed live-data latency on large DBs. */
+const FLAGS_INCIDENT_FETCH_TIMEOUT_MS = 60000;
 const SAMPLE_STALE_AFTER_SEC = 12;
 
 let updateChartInFlight = false;
@@ -542,7 +544,10 @@ async function loadIncidentDataForFlag(flag) {
     tbody.innerHTML = '<tr><td colspan="6" class="text-muted">Loading...</td></tr>';
 
     try {
-        const payload = await fetchJson(`/incident-context/${flag.id}?window_minutes=15`);
+        const payload = await fetchJson(
+            `/incident-context/${flag.id}?window_minutes=15`,
+            FLAGS_INCIDENT_FETCH_TIMEOUT_MS
+        );
         if (thisRequestToken !== incidentDataRequestToken) return;
         renderIncidentDataRows(payload.samples || []);
         dashboardState.incidentDataLoadedForFlagId =
@@ -887,7 +892,7 @@ function applyFlagTypeFilterAndRender() {
 
 async function loadFlagsSummary() {
     try {
-        const data = await fetchJson("/flags-summary");
+        const data = await fetchJson("/flags-summary", FLAGS_INCIDENT_FETCH_TIMEOUT_MS);
         if (!Array.isArray(data)) throw new Error("Unexpected flags-summary payload");
 
         const deviceFlags = data.filter((f) => Number(f.is_user_generated) === 0);

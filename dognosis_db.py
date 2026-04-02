@@ -50,6 +50,13 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
             except sqlite3.OperationalError:
                 pass
 
+    try:
+        c.execute(
+            "CREATE INDEX IF NOT EXISTS idx_sensor_data_timestamp ON sensor_data(timestamp)"
+        )
+    except sqlite3.OperationalError:
+        pass
+
     c.execute("PRAGMA table_info(flags)")
     flag_cols = {row[1] for row in c.fetchall()}
     if "datetime" not in flag_cols:
